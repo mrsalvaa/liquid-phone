@@ -119,6 +119,22 @@ Etapa 2, en el emulador `liquid35` (Android 35), con números ficticios:
 | Modo seguro con número no ficticio | "Número oculto", en notificación también |
 | Horizontal, letra al 150 %, temas | Colgar siempre visible |
 | Contraste del ícono de colgar | 5,62:1 en los 8 temas y estilos medidos |
+| Botón contra lo adyacente | Ver "Contraste de los botones de llamada" |
+
+### Contraste de los botones de llamada
+
+El rojo `#C62828` y el verde `#1B7F3B` solos no siempre llegan a 3:1 contra el fondo: en oscuro con manchas, 2,16:1. Por eso llevan un borde de 2 dp, blanco al 80 % en oscuro y negro al 60 % en claro.
+
+| Tema | Borde contra el fondo, medido | Peor caso calculado |
+|---|---|---|
+| Oscuro, fondo en movimiento | 8,29:1 | 5,95:1 |
+| Oscuro, animaciones reducidas | — | 3,50:1 |
+| Oscuro, énfasis, liso y sólido | 13,89:1 o más | — |
+| Claro, fondo en movimiento | 8,66:1 | 8,13:1 |
+| Claro, animaciones reducidas | — | 7,52:1 |
+| Claro, énfasis, liso y sólido | 10,79:1 o más | — |
+
+**Medido:** sobre capturas del emulador, alrededor de atender, rechazar y colgar, con el juego de colores por defecto. El fondo no cambió entre capturas, así que no recorre su animación. **Calculado:** el borde contra el peor color posible de los 4 juegos, con hasta cuatro manchas superpuestas en su punto más intenso. No cubre todos los colores de énfasis que se pueden elegir.
 
 **No probado, y por qué:**
 
@@ -155,12 +171,12 @@ Los tests de `:core` no usan números argentinos que puedan ser de alguien, y `T
 
 | País | Número en los tests | Rango | Fuente |
 |---|---|---|---|
-| Estados Unidos | `+1 202 555 0143` y otras áreas | `555-0100` a `555-0199` | Reserva de la administración de numeración norteamericana para ficción |
-| Reino Unido | `+44 20 7946 0143` | `020 7946 0000` a `0999`; móvil `07700 900000` a `900999` | [Ofcom, números para drama](https://www.ofcom.org.uk/phones-and-broadband/phone-numbers/numbers-for-drama): no se asignan a clientes |
-| Australia | `+61 491 570 156` | Lista de números `0491 570 ...` | [ACMA, números para obras creativas](https://www.acma.gov.au/phone-numbers-use-tv-shows-films-and-creative-works) |
+| Estados Unidos | `+1 202 555 0143` y otras áreas | `555-0100` a `555-0199` | Confirmado. Reserva de la administración de numeración norteamericana para ficción |
+| Reino Unido | `+44 20 7946 0143` | `020 7946 0000` a `0999`; móvil `07700 900000` a `900999` | Confirmado. [Ofcom, números para drama](https://www.ofcom.org.uk/phones-and-broadband/phone-numbers/numbers-for-drama): no se asignan a clientes |
+| Australia | `+61 491 570 156` | Lista de números `0491 570 ...` | **Sin verificar.** La [página de ACMA](https://www.acma.gov.au/phone-numbers-use-tv-shows-films-and-creative-works) no se pudo abrir y las copias de su lista difieren. Solo viven en los tests |
 | España | `+34 612 ...`, `+34 91 ...` | **Sin rango oficial encontrado**, así que no se cambiaron | Búsqueda sin resultados en CNMC y Plan Nacional de Numeración |
 
-Los rangos de Ofcom y ACMA salen de los resultados de búsqueda sobre esas páginas, porque el acceso directo falló. ACMA actualiza su lista y las copias difieren: revisar la página antes de reutilizar un número.
+Antes de reutilizar un número de Australia, confirmarlo en la página de ACMA.
 
 ## Lecciones para messages
 

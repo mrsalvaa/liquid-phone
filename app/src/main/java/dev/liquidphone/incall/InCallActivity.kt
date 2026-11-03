@@ -319,8 +319,8 @@ private fun CallRoundButton(label: String, icon: ImageVector, color: Color, onCl
                 .size(72.dp)
                 .clip(CircleShape)
                 .background(color)
-                // Sobre un fondo oscuro el relleno solo no llega a 3:1 con lo que lo rodea.
-                .then(if (p.dark) Modifier.border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape) else Modifier)
+                // Con el fondo de manchas, el relleno solo no siempre llega a 3:1 con lo que lo rodea.
+                .border(2.dp, if (p.dark) Color.White.copy(alpha = 0.8f) else Color.Black.copy(alpha = 0.6f), CircleShape)
                 .clickable(onClickLabel = label, role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
