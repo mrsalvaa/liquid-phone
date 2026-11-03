@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -80,7 +81,7 @@ import dev.liquidphone.util.str
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val KEY_NAMES = mapOf(
+val KEY_NAMES = mapOf(
     '1' to R.string.key_1, '2' to R.string.key_2, '3' to R.string.key_3, '4' to R.string.key_4, '5' to R.string.key_5,
     '6' to R.string.key_6, '7' to R.string.key_7, '8' to R.string.key_8, '9' to R.string.key_9, '0' to R.string.key_0,
     '*' to R.string.key_star, '#' to R.string.key_hash,
@@ -93,6 +94,13 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
     val book by Repo.book.collectAsStateWithLifecycle()
     val numbers by Repo.numbers.collectAsStateWithLifecycle()
     val settings by Stores.settings.state.collectAsStateWithLifecycle()
+    val pendingDial by Repo.pendingDial.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingDial) {
+        pendingDial?.let {
+            text = DialBuffer.sanitize(it)
+            Repo.requestDial(null)
+        }
+    }
     val digits = text.filter(Char::isDigit)
     val results by produceState(emptyList<ContactSummary>(), digits, book) {
         value = withContext(Dispatchers.Default) { DialSearch.search(digits, book.entries).take(50) }

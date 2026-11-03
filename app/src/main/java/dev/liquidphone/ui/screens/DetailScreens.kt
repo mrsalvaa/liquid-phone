@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.input.KeyboardType
+import dev.liquidphone.ui.glass.GlassTextField
+import dev.liquidphone.ui.glass.SettingRow
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -144,6 +149,7 @@ fun CallDetailScreen(group: CallGroup, padding: PaddingValues, onBack: () -> Uni
                 )
             }
         }
+        if (latest.callable) BlockButton(group.number)
         if (group.account != null && original == null) {
             Text(str(R.string.sim_gone_hint), fontSize = 13.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 8.dp))
         }
@@ -253,5 +259,112 @@ fun ContactDetailScreen(contactId: Long, padding: PaddingValues, onBack: () -> U
             Modifier.fillMaxWidth().padding(top = 12.dp),
         )
         Spacer(Modifier.padding(top = 24.dp))
+    }
+}
+
+/** Bloquear o desbloquear este número. Solo aparece siendo el marcador predeterminado. */
+@Composable
+private fun BlockButton(number: String) {
+    val dialog = LocalDialog.current
+    val toast = LocalToast.current
+    val scope = rememberCoroutineScope()
+    val p = LocalGlass.current
+    var state by remember(number) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(number) {
+        state = withContext(Dispatchers.IO) { if (Repo.blocked.available()) Repo.blocked.isBlocked(number) else null }
+    }
+    val blocked = state ?: return
+    fun apply(block: Boolean) {
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { if (block) Repo.blocked.block(number) else Repo.blocked.unblock(number) }
+            if (ok) state = block else toast(str(R.string.blocked_failed))
+        }
+    }
+    GlassButton(
+        str(if (blocked) R.string.unblock_number else R.string.block_number),
+        {
+            if (blocked) {
+                apply(false)
+            } else {
+                dialog(
+                    DialogSpec(str(R.string.block_title)) { dismiss ->
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(str(R.string.block_text), color = p.content, fontSize = 14.sp)
+                            DangerButton(str(R.string.block_number), { dismiss(); apply(true) }, Modifier.fillMaxWidth())
+                            GlassButton(str(R.string.cancel), dismiss, Modifier.fillMaxWidth())
+                        }
+                    },
+                )
+            }
+        },
+        Modifier.fillMaxWidth().padding(bottom = 8.dp),
+    )
+}
+
+/** La lista de bloqueados: agregar y sacar. */
+@Composable
+fun BlockedScreen(padding: PaddingValues, onBack: () -> Unit) {
+    val p = LocalGlass.current
+    val toast = LocalToast.current
+    val scope = rememberCoroutineScope()
+    val numbers by Repo.numbers.collectAsStateWithLifecycle()
+    var available by remember { mutableStateOf(true) }
+    var list by remember { mutableStateOf(emptyList<String>()) }
+    var typed by remember { mutableStateOf("") }
+    suspend fun reload() {
+        val (a, l) = withContext(Dispatchers.IO) { Repo.blocked.available() to Repo.blocked.list() }
+        available = a
+        list = l
+    }
+    LaunchedEffect(Unit) { reload() }
+    Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
+        BackTitle(str(R.string.blocked_title), onBack)
+        Text(str(if (available) R.string.blocked_hint else R.string.blocked_needs_role), fontSize = 13.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 10.dp))
+        if (!available) return@Column
+        GlassCard {
+            GlassTextField(
+                typed,
+                { typed = it },
+                str(R.string.blocked_add_hint),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            )
+            GlassButton(
+                str(R.string.block_number),
+                {
+                    val number = typed.trim()
+                    scope.launch {
+                        val ok = number.any(Char::isDigit) && withContext(Dispatchers.IO) { Repo.blocked.block(number) }
+                        if (ok) {
+                            typed = ""
+                            reload()
+                        } else {
+                            toast(str(R.string.blocked_failed))
+                        }
+                    }
+                },
+                Modifier.fillMaxWidth().padding(top = 10.dp),
+                enabled = typed.any(Char::isDigit),
+            )
+        }
+        Spacer(Modifier.padding(top = 12.dp))
+        if (list.isEmpty()) {
+            Text(str(R.string.blocked_empty), fontSize = 14.sp, color = p.contentSecondary)
+        } else {
+            GlassCard {
+                list.forEach { number ->
+                    SettingRow(
+                        numbers.format(number),
+                        trailing = {
+                            GlassButton(str(R.string.unblock_number), {
+                                scope.launch {
+                                    withContext(Dispatchers.IO) { Repo.blocked.unblock(number) }
+                                    reload()
+                                }
+                            })
+                        },
+                    )
+                }
+            }
+        }
     }
 }

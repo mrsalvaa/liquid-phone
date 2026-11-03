@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import android.Manifest
+import android.app.role.RoleManager
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import dev.liquidphone.ui.glass.GlassButton
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -65,7 +72,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boolean = false) {
+fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boolean = false, onBlocked: () -> Unit = {}) {
     val p = LocalGlass.current
     val dialog = LocalDialog.current
     val s by Stores.settings.state.collectAsStateWithLifecycle()
@@ -102,6 +109,9 @@ fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boole
 
         SectionLabel(str(R.string.appearance))
         AppearanceCard(s, edit)
+
+        SectionLabel(str(R.string.default_dialer_section))
+        DefaultDialerCard(onBlocked)
 
         SectionLabel(str(R.string.calls_section))
         GlassCard {
@@ -198,6 +208,40 @@ fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boole
 
         DevTools.SettingsCard()
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * Ser el marcador predeterminado lo decide el usuario con el diálogo del sistema: nada lo pide solo.
+ * Después se piden las notificaciones, que hacen falta para la entrante y las perdidas.
+ */
+@Composable
+private fun DefaultDialerCard(onBlocked: () -> Unit) {
+    val context = LocalContext.current
+    val p = LocalGlass.current
+    val tick by Repo.permissionTick.collectAsStateWithLifecycle()
+    var held by remember { mutableStateOf(false) }
+    LaunchedEffect(tick) { held = Repo.isDefaultDialer() }
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        held = Repo.isDefaultDialer()
+        Repo.start()
+        if (held) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+    GlassCard {
+        Text(str(if (held) R.string.default_dialer_on else R.string.default_dialer_off), fontSize = 16.sp)
+        Text(str(R.string.default_dialer_hint), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+        val manager = context.getSystemService(RoleManager::class.java)
+        if (!held && manager?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
+            GlassButton(str(R.string.default_dialer_action), { role.launch(manager.createRequestRoleIntent(RoleManager.ROLE_DIALER)) }, Modifier.fillMaxWidth())
+        } else if (held) {
+            GlassButton(
+                str(R.string.default_dialer_change),
+                { context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)) },
+                Modifier.fillMaxWidth(),
+            )
+            SettingRow(str(R.string.blocked_title), Modifier.padding(top = 6.dp), onClick = onBlocked)
+        }
     }
 }
 

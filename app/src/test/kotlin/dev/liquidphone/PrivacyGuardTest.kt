@@ -33,7 +33,7 @@ class PrivacyGuardTest {
     }
 
     @Test
-    fun elManifestPrincipalPideSoloLosCincoPermisos() {
+    fun elManifestPrincipalPideSoloLosPermisosAprobados() {
         val manifest = File(root, "app/src/main/AndroidManifest.xml").readText()
         val requested = Regex("""<uses-permission\s+android:name="([^"]+)"\s*/>""").findAll(manifest).map { it.groupValues[1] }.toSet()
         assertEquals(
@@ -43,6 +43,10 @@ class PrivacyGuardTest {
                 "android.permission.WRITE_CALL_LOG",
                 "android.permission.READ_PHONE_STATE",
                 "android.permission.CALL_PHONE",
+                // Etapa 2, con aviso previo: entrante, en curso y perdida; pantalla de bloqueo; proximidad.
+                "android.permission.POST_NOTIFICATIONS",
+                "android.permission.USE_FULL_SCREEN_INTENT",
+                "android.permission.WAKE_LOCK",
             ),
             requested,
         )
@@ -53,11 +57,12 @@ class PrivacyGuardTest {
     }
 
     @Test
-    fun laEtapa1NoAtiendeLlamadasDeOtrasApps() {
+    fun otrasAppsPuedenDejarUnNumeroPeroNoHacerQueLlame() {
         val manifest = File(root, "app/src/main/AndroidManifest.xml").readText()
-        for (filter in listOf("android.intent.action.DIAL", "android.intent.action.CALL", "android:scheme=\"tel\"", "InCallService", "android.intent.action.VIEW")) {
-            assertFalse(filter in manifest, filter)
-        }
+        assertFalse("android.intent.action.CALL\"" in manifest, "ninguna app puede hacer que esta marque")
+        assertTrue("android.intent.action.DIAL" in manifest)
+        assertTrue("android.permission.BIND_INCALL_SERVICE" in manifest, "solo Telecom se conecta al servicio")
+        assertFalse("""android:name="android.telecom.IN_CALL_SERVICE_RINGING"""" in manifest, "el tono lo pone el sistema")
     }
 
     @Test

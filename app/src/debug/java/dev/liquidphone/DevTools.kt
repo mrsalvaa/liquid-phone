@@ -123,7 +123,24 @@ object DevTools {
 
     fun allowedContacts(context: Context): Set<Long>? = if (safe) ownContacts(context) else null
 
-    fun allowedCalls(context: Context): Set<Long>? = if (safe) store.value.calls.map { it.id }.toSet() else null
+    fun allowedCalls(context: Context): Set<Long>? = if (safe) store.value.calls.map { it.id }.toSet() + reservedCalls(context) else null
+
+    /**
+     * También las filas de un número de rango reservado: las genera el emulador al probar llamadas de
+     * verdad. La consulta ya filtra por número, así que una fila real no llega a leerse.
+     */
+    private fun reservedCalls(context: Context): Set<Long> = try {
+        val patterns = listOf("+1???55501??", "1???55501??", "+447700900???", "447700900???")
+        context.contentResolver.query(
+            Calls.CONTENT_URI,
+            arrayOf(Calls._ID),
+            patterns.joinToString(" OR ") { "${Calls.NUMBER} GLOB ?" },
+            patterns.toTypedArray(),
+            null,
+        )?.use { c -> buildSet { while (c.moveToNext()) add(c.getLong(0)) } }.orEmpty()
+    } catch (e: SecurityException) {
+        emptySet()
+    }
 
     /**
      * Los contactos que son solo de esta herramienta. Si Android juntara una ficha ficticia con una
@@ -217,6 +234,18 @@ object DevTools {
 
     fun logDecision(what: String) {
         Log.i(TAG, "simulacro: $what")
+    }
+
+    /** Estados de una llamada, sin números: con el modo seguro apagado podrían ser reales. */
+    fun logCall(what: String) {
+        Log.i(TAG, "llamada: $what")
+    }
+
+    /** Con el modo seguro, un número que no es de un rango reservado no se muestra: da null. */
+    fun maskNumber(number: String): String? {
+        if (!safe) return number
+        val digits = number.filter(Char::isDigit)
+        return number.takeIf { FakeNumbers.isReserved("+$digits") }
     }
 
     // ---------------------------------------------------------------- datos ficticios

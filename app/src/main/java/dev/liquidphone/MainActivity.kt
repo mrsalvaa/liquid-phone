@@ -2,6 +2,10 @@
 package dev.liquidphone
 
 import android.os.Bundle
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
@@ -92,6 +96,10 @@ import dev.liquidphone.ui.glass.PromptSpec
 import dev.liquidphone.ui.glass.SheetSpec
 import dev.liquidphone.ui.glass.isDarkTheme
 import dev.liquidphone.ui.screens.CallDetailScreen
+import dev.liquidphone.incall.CallManager
+import dev.liquidphone.incall.CallNotifications
+import dev.liquidphone.incall.InCallActivity
+import dev.liquidphone.ui.screens.BlockedScreen
 import dev.liquidphone.ui.screens.CallerHost
 import dev.liquidphone.ui.screens.ContactDetailScreen
 import dev.liquidphone.ui.screens.ContactsTab
@@ -108,6 +116,7 @@ import dev.liquidphone.util.str
 /** Pantallas que se abren encima de las pestañas. */
 sealed interface Overlay {
     data class Settings(val toAreaCode: Boolean = false) : Overlay
+    data object Blocked : Overlay
     data class Contact(val contactId: Long) : Overlay
     data class Call(val group: CallGroup) : Overlay
 }
@@ -118,14 +127,36 @@ private const val TAB_FAVORITES = 2
 private const val TAB_COUNT = 4
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_RECENTS = "recents"
+        const val EXTRA_DIAL = "dial"
+    }
+
     override fun onResume() {
         super.onResume()
         Repo.start()
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handle(intent)
+    }
+
+    /** Un número de otra app o de la notificación queda escrito en el teclado: nunca marca solo. */
+    private fun handle(intent: Intent?) {
+        intent ?: return
+        if (intent.getBooleanExtra(EXTRA_RECENTS, false)) Repo.requestRecents()
+        intent.getStringExtra(EXTRA_DIAL)?.let(Repo::requestDial)
+        if ((intent.action == Intent.ACTION_DIAL || intent.action == Intent.ACTION_VIEW) && intent.data?.scheme == "tel") {
+            Repo.requestDial(intent.data?.schemeSpecificPart.orEmpty())
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) handle(intent)
         preferHighestRefreshRate()
         setContent {
             val settings by Stores.settings.state.collectAsStateWithLifecycle()
@@ -150,6 +181,27 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
     var toast by remember { mutableStateOf<Pair<String, Long>?>(null) }
     val reduced = LocalReducedMotion.current
     val conflict by Repo.countryConflict.collectAsStateWithLifecycle()
+    val pendingDial by Repo.pendingDial.collectAsStateWithLifecycle()
+    val openRecents by Repo.openRecents.collectAsStateWithLifecycle()
+    val inCall by CallManager.ui.collectAsStateWithLifecycle()
+    val appContext = LocalContext.current.applicationContext
+
+    LaunchedEffect(pendingDial) {
+        if (pendingDial != null) {
+            stack.clear()
+            tab = TAB_KEYPAD
+        }
+    }
+    LaunchedEffect(openRecents) {
+        if (openRecents > 0) {
+            stack.clear()
+            tab = TAB_RECENTS
+        }
+    }
+    // Abrir recientes es ver las perdidas. Sin el rol, de eso se encarga el marcador que lo tenga.
+    LaunchedEffect(tab) {
+        if (tab == TAB_RECENTS && Repo.isDefaultDialer()) CallNotifications.missedSeen(appContext)
+    }
 
     fun push(o: Overlay) {
         stack += o
@@ -226,6 +278,16 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
                         )
                     }
                 }
+                // Volver a la llamada desde el teclado, por ejemplo al agregar otra.
+                inCall.primary?.let { call ->
+                    GlassButton(
+                        str(R.string.call_return, call.title),
+                        { appContext.startActivity(Intent(appContext, InCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
+                        Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(8.dp),
+                        icon = Icons.Rounded.Call,
+                        prominent = true,
+                    )
+                }
                 ToastHost(toast) { toast = null }
                 ActionSheetHost(sheet) { sheet = null }
                 PromptHost(prompt) { prompt = null }
@@ -278,7 +340,8 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
                     }
                     holder.SaveableStateProvider(key) {
                         when (current) {
-                            is Overlay.Settings -> SettingsScreen(overlayPadding, ::pop, current.toAreaCode)
+                            is Overlay.Settings -> SettingsScreen(overlayPadding, ::pop, current.toAreaCode, onBlocked = { push(Overlay.Blocked) })
+                            Overlay.Blocked -> BlockedScreen(overlayPadding, ::pop)
                             is Overlay.Contact -> ContactDetailScreen(current.contactId, overlayPadding, ::pop)
                             is Overlay.Call -> CallDetailScreen(current.group, overlayPadding, ::pop, onContact)
                         }

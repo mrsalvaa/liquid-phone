@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.telephony.TelephonyManager
 import dev.liquidphone.DevTools
 import dev.liquidphone.calls.Dialer
+import dev.liquidphone.calls.SystemBlocked
+import dev.liquidphone.incall.CallManager
 import dev.liquidphone.calls.SystemCallLog
 import dev.liquidphone.contacts.SystemContacts
 import dev.liquidphone.core.calls.CallLogTools
@@ -36,6 +38,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /** La agenda lista para usar: en orden alfabético, con la coincidencia de números y el T9 calculados. */
@@ -60,6 +63,8 @@ object Repo {
         private set
     lateinit var dialer: Dialer
         private set
+    lateinit var blocked: SystemBlocked
+        private set
 
     private val _numbers = MutableStateFlow(PhoneNumbers())
     /** Normalizador con el país y el código de área de los ajustes. */
@@ -79,6 +84,22 @@ object Repo {
     /** Cambia cada vez que se revisan los permisos: las pantallas vuelven a mirar cuáles hay. */
     val permissionTick: StateFlow<Int> = _permissionTick.asStateFlow()
 
+    private val _pendingDial = MutableStateFlow<String?>(null)
+    /** Un número para dejar escrito en el teclado (nunca marca solo). */
+    val pendingDial: StateFlow<String?> = _pendingDial.asStateFlow()
+
+    private val _openRecents = MutableStateFlow(0)
+    /** Cambia cuando hay que ir a recientes (la notificación de perdidas). */
+    val openRecents: StateFlow<Int> = _openRecents.asStateFlow()
+
+    fun requestDial(number: String?) {
+        _pendingDial.value = number
+    }
+
+    fun requestRecents() {
+        _openRecents.value++
+    }
+
     private var contactsJob: Job? = null
     private var callsJob: Job? = null
 
@@ -88,6 +109,10 @@ object Repo {
         callLog = SystemCallLog(app) { DevTools.allowedCalls(app) }
         sims = SystemSims(app)
         dialer = Dialer(sims)
+        blocked = SystemBlocked(app)
+        // La pantalla de llamada muestra el nombre y el chip: se actualiza si llegan después.
+        scope.launch { book.collect { withContext(Dispatchers.Main) { CallManager.publish() } } }
+        scope.launch { sims.state.collect { withContext(Dispatchers.Main) { CallManager.publish() } } }
         scope.launch {
             Stores.settings.state.map { it.defaultCountry to it.defaultAreaCode }.distinctUntilChanged().collect { (country, area) ->
                 _numbers.value = PhoneNumbers(country.ifEmpty { "AR" }, area.ifEmpty { null })
@@ -96,6 +121,8 @@ object Repo {
         // Lo que muestra el modo seguro de debug cambia sin que cambie el proveedor.
         scope.launch { DevTools.changes().collect { reloadAll() } }
     }
+
+    fun isDefaultDialer(): Boolean = dialer.isDefaultDialer(app)
 
     fun granted(permission: String): Boolean = app.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 

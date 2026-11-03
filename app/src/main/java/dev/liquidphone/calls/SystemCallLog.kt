@@ -49,6 +49,31 @@ class SystemCallLog(context: Context, private val allowedCalls: () -> Set<Long>?
         }.orEmpty()
     }
 
+    /** Perdidas sin ver, de la más nueva a la más vieja. Con filtro, solo las permitidas. */
+    fun newMissed(): List<CallRow> =
+        rows().filter { it.type == CallType.MISSED }.let { missed ->
+            val fresh = resolver.query(Calls.CONTENT_URI, arrayOf(Calls._ID), newMissedSelection(), null, null)?.use { c ->
+                buildSet { while (c.moveToNext()) add(c.getLong(0)) }
+            }.orEmpty()
+            missed.filter { it.id in fresh }
+        }
+
+    /** Dejan de ser nuevas. Con filtro, solo las permitidas: lo real no se toca. */
+    fun markMissedSeen() {
+        val values = android.content.ContentValues().apply { put(Calls.NEW, 0) }
+        try {
+            resolver.update(Calls.CONTENT_URI, values, newMissedSelection(), null)
+        } catch (e: SecurityException) {
+            // Sin permiso de escribir, solo sigue figurando como nueva.
+        }
+    }
+
+    private fun newMissedSelection(): String {
+        val base = "${Calls.TYPE} = ${Calls.MISSED_TYPE} AND ${Calls.NEW} = 1"
+        val allowed = allowedCalls() ?: return base
+        return "$base AND ${Calls._ID} IN (${allowed.ifEmpty { setOf(-1L) }.joinToString(",")})"
+    }
+
     /** Borra esas filas, una por una. Con filtro, solo las permitidas. Devuelve cuántas borró. */
     fun delete(ids: Collection<Long>): Int {
         val allowed = allowedCalls()

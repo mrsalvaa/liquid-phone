@@ -14,6 +14,12 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- Llamar con el chip elegido. Sin él se abre el marcador del sistema (ACTION_DIAL). -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- Notificaciones de llamada entrante, en curso y perdida. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Mostrar la llamada entrante sobre la pantalla de bloqueo. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- Sensor de proximidad: apagar la pantalla con el celu en la oreja. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!--
         Prohibidos aunque una librería los pida: la app no usa la red ni la ubicación. El estado de
@@ -59,14 +65,63 @@
         android:theme="@style/Theme.LiquidPhone">
 
         <!--
-            Etapa 1: la app no es el marcador predeterminado y no atiende tel: de otras apps. El
-            único punto de entrada exportado son los íconos del launcher.
+            DIAL con y sin número es lo que exige el sistema para poder elegir la app como marcador.
+            Otra app solo puede dejar un número escrito en el teclado: acá no hay ACTION_CALL.
         -->
         <activity
             android:name=".MainActivity"
-            android:exported="false"
+            android:exported="true"
             android:launchMode="singleTask"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tel" />
+            </intent-filter>
+        </activity>
+
+        <!-- Pantalla de llamada, también sobre la de bloqueo. La abren el servicio y las notificaciones. -->
+        <activity
+            android:name=".incall.InCallActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity="${applicationId}.incall"
+            android:turnScreenOn="true" />
+
+        <!--
+            Solo Telecom puede conectarse. Sin IN_CALL_SERVICE_RINGING: el tono lo pone el sistema.
+        -->
+        <service
+            android:name=".incall.PhoneInCallService"
+            android:exported="true"
+            android:permission="android.permission.BIND_INCALL_SERVICE">
+            <meta-data
+                android:name="android.telecom.IN_CALL_SERVICE_UI"
+                android:value="true" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".incall.CallActionReceiver"
+            android:exported="false" />
+        <!-- Exportado porque lo manda Telecom. No usa nada del intent: todo sale del registro. -->
+        <receiver
+            android:name=".incall.MissedCallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.startup.InitializationProvider"

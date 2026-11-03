@@ -25,6 +25,8 @@ object DevTools {
     fun simulating(): Boolean = false
     fun simulatedText(outcome: dev.liquidphone.calls.DialOutcome.Simulated): String? = null
     fun logDecision(what: String) = Unit
+    fun logCall(what: String) = Unit
+    fun maskNumber(number: String): String? = number
     fun changes(): Flow<Unit> = emptyFlow()
 
     @Composable
