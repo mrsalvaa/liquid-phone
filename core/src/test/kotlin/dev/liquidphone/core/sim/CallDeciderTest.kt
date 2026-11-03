@@ -14,7 +14,7 @@ class CallDeciderTest {
     private val keyB = AccountKey("telefonia/falsa", "cuenta-b")
     private val sim1 = SimChip(0, "Chip A", 1, keyA, SimStatus.IN_SERVICE)
     private val sim2 = SimChip(1, "Chip B", 2, keyB, SimStatus.IN_SERVICE)
-    private val number = "011 2345-6789"
+    private val number = "011 1345-6789"
     private val fakeEmergency = "55501"
     private val notEmergency: (String) -> Boolean = { false }
     private val emergency: (String) -> Boolean = { it == fakeEmergency }

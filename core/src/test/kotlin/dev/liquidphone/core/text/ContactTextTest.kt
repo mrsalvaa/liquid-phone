@@ -66,10 +66,10 @@ class ContactTextTest {
 
     @Test
     fun buscarPorNumeroIgnoraElFormato() {
-        val phones = listOf("+54 9 11 2345-6789")
-        assertTrue(ContactSearch("2345").matches("Ana", phones))
-        assertTrue(ContactSearch("2345-67").matches("Ana", phones))
-        assertTrue(ContactSearch("(11) 2345").matches("Ana", phones))
+        val phones = listOf("+54 9 11 1345-6789")
+        assertTrue(ContactSearch("1345").matches("Ana", phones))
+        assertTrue(ContactSearch("1345-67").matches("Ana", phones))
+        assertTrue(ContactSearch("(11) 1345").matches("Ana", phones))
         assertFalse(ContactSearch("9999").matches("Ana", phones))
         assertTrue(ContactSearch("+549").isNumber)
         assertFalse(ContactSearch("ana 2").isNumber)
@@ -79,11 +79,11 @@ class ContactTextTest {
     @Test
     fun buscarPorNumeroEnOtroFormato() {
         val ar = dev.liquidphone.core.phone.PhoneNumbers("AR")
-        val stored = listOf("+54 9 11 2345-6789")
-        assertTrue(ContactSearch("15 2345", ar::searchForms).matches("Ana", stored))
-        assertTrue(ContactSearch("011 15 2345", ar::searchForms).matches("Ana", stored))
-        assertTrue(ContactSearch("+54 9 11", ar::searchForms).matches("Ana", listOf("011 15 2345-6789")))
-        assertFalse(ContactSearch("15 2345", ar::searchForms).matches("Ana", listOf("+34 612 34 56 78")))
+        val stored = listOf("+54 9 11 1345-6789")
+        assertTrue(ContactSearch("15 1345", ar::searchForms).matches("Ana", stored))
+        assertTrue(ContactSearch("011 15 1345", ar::searchForms).matches("Ana", stored))
+        assertTrue(ContactSearch("+54 9 11", ar::searchForms).matches("Ana", listOf("011 15 1345-6789")))
+        assertFalse(ContactSearch("15 1345", ar::searchForms).matches("Ana", listOf("+34 612 34 56 78")))
     }
 
     @Test

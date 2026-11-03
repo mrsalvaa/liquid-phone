@@ -75,8 +75,8 @@ class DialTest {
     }
 
     @Test fun `busca por numero en cualquier forma argentina`() {
-        val e = listOf(entry("Ana", "+54 9 11 2345-6789"))
-        for (typed in listOf("2345", "1123456789", "5491123456789", "6789")) {
+        val e = listOf(entry("Ana", "+54 9 11 1345-6789"))
+        for (typed in listOf("1345", "1113456789", "5491113456789", "6789")) {
             assertEquals(listOf("Ana"), DialSearch.search(typed, e), typed)
         }
     }
@@ -84,7 +84,7 @@ class DialTest {
     @Test fun `el nombre al principio gana a la palabra y al numero`() {
         val list = listOf(entry("Zoe", "22334455"), entry("Pedro Ana"), entry("Ana"))
         assertEquals(listOf("Ana", "Pedro Ana"), DialSearch.search("262", list))
-        val withNumber = listOf(entry("Zoe", "01126255555"), entry("Ana"))
+        val withNumber = listOf(entry("Zoe", "01112625555"), entry("Ana"))
         assertEquals(listOf("Ana", "Zoe"), DialSearch.search("262", withNumber))
     }
 
@@ -123,7 +123,7 @@ class DialTest {
     }
 
     @Test fun `limpia lo que viene de otra parte`() {
-        assertEquals("+5491123456789", DialBuffer.sanitize(" +54 9 (11) 2345-6789 "))
+        assertEquals("+5491113456789", DialBuffer.sanitize(" +54 9 (11) 1345-6789 "))
         assertEquals("54", DialBuffer.sanitize("5+4"))
         assertEquals("*123#", DialBuffer.sanitize("*123#"))
     }
@@ -132,8 +132,8 @@ class DialTest {
 
     @Test fun `formato mientras se escribe en Argentina`() {
         val f = DialFormat("AR")
-        assertEquals("011 2345-6789", f.format("01123456789"))
-        assertEquals("+54 9 11 2345-6789", f.format("+5491123456789"))
+        assertEquals("011 1345-6789", f.format("01113456789"))
+        assertEquals("+54 9 11 1345-6789", f.format("+5491113456789"))
         assertEquals("0351 456-7890", f.format("03514567890"))
     }
 
@@ -154,11 +154,11 @@ class DialTest {
 
     @Test fun `el formateador se puede reusar`() {
         val f = DialFormat("AR")
-        f.format("01123456789")
+        f.format("01113456789")
         assertEquals("03", f.format("03"))
     }
 
     @Test fun `formato para leer un numero guardado`() {
-        assertEquals("011 15-2345-6789", numbers.format("+54 9 11 2345-6789"))
+        assertEquals("011 15-1345-6789", numbers.format("+54 9 11 1345-6789"))
     }
 }

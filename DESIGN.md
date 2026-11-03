@@ -79,13 +79,30 @@ Los temas oscuros no cambian de opacidad; `readableOn` vale en todos. Los valore
 
 **Para revertir:** `GlassExceptions.ENABLED = false` deja el aspecto exacto de Contacts, y `ReadableOnTest` sigue probando la función de la capa. Para sacarla del todo, borrar el archivo y las dos llamadas de `Theme.kt`.
 
+## Números de los tests
+
+Los tests de `:core` no usan números argentinos que puedan ser de alguien, y `TestNumbersGuardTest` lo controla sobre las fuentes de los tests. Argentina no tiene un rango reservado para ficción como `555-01XX`, así que se construyen:
+
+- **Área 11, con abonado de 8 dígitos que empieza con 1 y nunca con 15:** `011 1345-6789`, `011 15 1345-6789`, `+54 9 11 1345-6789`, `1321-0000`.
+- **Por qué con 1:** los servicios especiales usan `1XY`, así que un número local con 1 adelante chocaría con ellos al marcarlo. `15` es el prefijo de móvil.
+- **Por qué no con 0:** es el prefijo de acceso, y además `localDigits` quita los ceros iniciales de un número local, por lo que esos tests dejarían de probar lo que deben.
+- **Por qué sirve:** `libphonenumber` acepta cualquier abonado en el área 11 (`11\d{8}`), así que la lógica se prueba igual.
+
+**Hasta dónde llega esto.** No se encontró una regla oficial que prohíba el 1 como primer dígito del abonado: es una inferencia a partir del plan de numeración presentado a la UIT y de que `libphonenumber` exige de 2 a 8 fuera del área 11. Revisar contra el plan vigente de ENACOM si eso importa.
+
+**0800 y 0810** usan la misma forma (`0800 133 1234`), con menos respaldo: ahí no hay marcado local que choque.
+
+**Excepciones, con el número sin cambiar:** los del interior (áreas 351, 223 y 2966), listados en `TestNumbersGuardTest`. `libphonenumber` rechaza ahí el abonado con 0 o 1, y estos tests existen para probar áreas de 3 y 4 dígitos, así que deben ser válidos para la biblioteca: un número válido ahí no se puede garantizar como no asignable. Solo viven en los tests; nunca llegan al celu ni al sistema.
+
+**Otros países:** los `+1 202 555-0143`, `+1 919 555 0143` y `+1 915 555 0143` están en rango reservado. Los de España, Australia, Reino Unido (`+44 20 1234 5678`) y `+1 x 955 0143` son inventados con formato real, y no se cambiaron por no ser argentinos.
+
 ## Lecciones para messages
 
 | Problema | Por qué pasaba | Solución |
 |---|---|---|
 | **`AGGREGATION_MODE_DISABLED` deja el contacto invisible.** Estuvo en el plan para que un contacto ficticio no se juntara con uno real. | La documentación dice que la ficha no tiene contacto y no sale en `Contacts`. | `AGGREGATION_MODE_SUSPENDED`, un nombre con "(prueba)" que nunca coincide con uno real, y el filtro excluye cualquier contacto que tenga fichas ajenas. |
 | **Las apps de sincronización leen los contactos del sistema: jamás crear contactos de prueba con números de formato real.** Con números argentinos inventados aparecieron 2 fichas ajenas, más nuevas que las ficticias y pegadas a ellas, que se fueron solas menos de 25 s después de borrarlas. | Toda app con permiso de contactos los lee, y las que sincronizan pueden enviarlos a su servidor. Un número inventado con formato real puede ser la línea de alguien. No se leyeron esas fichas: solo se contaron. | `FakeNumbers`: solo `+1 NXX 555-01XX` y `+44 7700 900XXX`, con un control antes de cada escritura y un test. La herramienta se niega a crear datos si la agenda no está vacía y avisa si aparece una ficha ajena. Las listas en memoria (`DEV_MEMORY`) no las ve nadie. |
-| **`+44 7700 900XXX` no es válido para `libphonenumber`.** | Es un rango de ficción y la biblioteca no lo da por asignado. | Se muestra tal cual y coincide por la cola. Los argentinos reales los cubren los tests de `:core`, no los datos del celu. |
+| **`+44 7700 900XXX` no es válido para `libphonenumber`.** | Es un rango de ficción y la biblioteca no lo da por asignado. | Se muestra tal cual y coincide por la cola. El formato argentino lo cubren los tests de `:core`, no los datos del celu. |
 | **Filas ficticias en el registro pueden borrar filas reales.** | `CallLog.addCall` borra las más viejas de cada cuenta a partir de 500, y las ficticias cuentan. | 500 entradas solo en memoria; en el registro real unas 40, con tope de 450 por chip, un aviso mientras existan y borrarlas al terminar. |
 | **La `ui/glass` de Contacts no era la de Calendar `25ca0d6`.** | `DESIGN.md` de Contacts dice "sin cambios", pero después se agregó `pillVeil()`. | Comparar los archivos con `diff` antes de anotar un origen. |
 | **El chip principal del sistema puede no poder cambiarse.** | En el Samsung probado no hay forma de hacerlo. | Ajuste propio `primarySimSlot`, aclarando en pantalla que no toca el del sistema. Toda la lógica recibe la ranura, nunca asume la 0. |
