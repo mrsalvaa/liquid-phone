@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import android.provider.ContactsContract
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.input.KeyboardType
@@ -246,18 +247,16 @@ fun ContactDetailScreen(contactId: Long, padding: PaddingValues, onBack: () -> U
                 }
             }
         }
-        GlassButton(
-            str(R.string.open_in_contacts),
-            {
-                val uri = Repo.contacts.lookupUri(contactId)
-                try {
-                    if (uri != null) context.startActivity(Intent(Intent.ACTION_VIEW, uri)) else toast(str(R.string.no_contacts_app))
-                } catch (e: ActivityNotFoundException) {
-                    toast(str(R.string.no_contacts_app))
-                }
-            },
-            Modifier.fillMaxWidth().padding(top = 12.dp),
-        )
+        // Ver y editar los resuelve Liquid Contacts, o la app de contactos que haya: acá no se escribe en la agenda.
+        fun open(action: String) {
+            val uri = Repo.contacts.lookupUri(contactId)
+            val intent = uri?.let { Intent(action).setDataAndType(it, ContactsContract.Contacts.CONTENT_ITEM_TYPE) }
+            if (intent == null || !openInContacts(context, intent)) toast(str(R.string.no_contacts_app))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            GlassButton(str(R.string.open_in_contacts), { open(Intent.ACTION_VIEW) }, Modifier.weight(1f))
+            GlassButton(str(R.string.edit_contact), { open(Intent.ACTION_EDIT) }, Modifier.weight(1f))
+        }
         Spacer(Modifier.padding(top = 24.dp))
     }
 }

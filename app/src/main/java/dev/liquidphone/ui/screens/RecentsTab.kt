@@ -159,6 +159,7 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
             item("aviso") { Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) { DevTools.FakeDataBanner() } }
             val list = items
             if (list != null && list.isEmpty()) {
+                item("modo-seguro") { DevTools.SafeModeHint(Modifier.padding(8.dp)) }
                 item("vacio") { EmptyState(str(R.string.recents_empty), str(R.string.recents_empty_hint), Modifier.padding(top = 40.dp)) }
             }
             items(list.orEmpty(), key = { it.group.key }) { item ->

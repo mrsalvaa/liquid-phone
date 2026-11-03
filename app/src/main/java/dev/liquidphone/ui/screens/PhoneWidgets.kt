@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.selected
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -159,35 +164,111 @@ fun ChipCallButton(chip: SimChip?, prominent: Boolean, enabled: Boolean, modifie
     }
 }
 
+/** Verde fijo del botón de llamar: tiene que reconocerse igual en cualquier tema. */
+val CallGreen = Color(0xFF1B7F3B)
+
 /**
- * Los botones de llamar del teclado y del detalle. Con dos chips, siempre los dos: primero y destacado
- * el principal, después el otro. Son una elección explícita, por encima de la política. Con un solo
- * chip o sin poder verlos, un solo botón.
+ * Elegir chip y llamar, en el teclado y en el detalle: dos píldoras iguales para el chip, con el
+ * principal elegido al empezar, y un botón verde que es el único que llama. Es una elección explícita,
+ * por encima de la política. Después de llamar vuelve al principal: la próxima no sale por otro chip
+ * sin que se vea. Con un solo chip no hay qué elegir; sin poder verlos, solo el botón.
  */
 @Composable
 fun CallButtons(number: String, modifier: Modifier = Modifier) {
     val caller = LocalCaller.current
     val sims by Repo.sims.state.collectAsStateWithLifecycle()
     val settings by Stores.settings.state.collectAsStateWithLifecycle()
-    val primarySlot = settings.primarySimSlot
     val enabled = number.any { it.isDigit() || it == '*' || it == '#' }
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (sims.chips.isEmpty()) {
-            ChipCallButton(null, prominent = true, enabled = enabled, modifier = Modifier.weight(1f)) { caller(number, CallTarget.UsePolicy) }
+    val primarySlot = settings.primarySimSlot
+    var picked by rememberSaveable(primarySlot) { mutableStateOf(primarySlot) }
+    val chips = sims.chips
+    val chip = chips.firstOrNull { it.slotIndex == picked } ?: chips.firstOrNull { it.slotIndex == primarySlot } ?: chips.firstOrNull()
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (chips.isEmpty()) Spacer(Modifier.weight(1f))
+        chips.sortedBy { it.slotIndex }.forEach { c ->
+            ChipPill(c, selected = c == chip, canPick = chips.size > 1, isPrimary = c.slotIndex == primarySlot, modifier = Modifier.weight(1f)) { picked = c.slotIndex }
+        }
+        if (chips.isEmpty()) {
+            CallIconButton(null, false, enabled) { caller(number, CallTarget.UsePolicy) }
+            Spacer(Modifier.weight(1f))
         } else {
-            sims.chips.sortedBy { if (it.slotIndex == primarySlot) -1 else it.slotIndex }.forEach { chip ->
-                val isPrimary = chip.slotIndex == primarySlot
-                ChipCallButton(
-                    chip,
-                    prominent = isPrimary || sims.chips.size == 1,
-                    enabled = enabled,
-                    modifier = Modifier.weight(if (isPrimary) 1.15f else 1f),
-                    isPrimary = isPrimary,
-                ) {
-                    caller(number, CallTarget.Slot(chip.slotIndex))
-                }
+            CallIconButton(chip, chip?.slotIndex == primarySlot, enabled) {
+                chip?.let { caller(number, CallTarget.Slot(it.slotIndex)) }
+                picked = primarySlot
             }
         }
+    }
+}
+
+/** Una píldora de chip. Todas miden lo mismo; la elegida se distingue por el relleno y el tilde de TalkBack. */
+@Composable
+private fun ChipPill(chip: SimChip, selected: Boolean, canPick: Boolean, isPrimary: Boolean, modifier: Modifier, onPick: () -> Unit) {
+    val p = LocalGlass.current
+    val textColor = if (selected && canPick) p.onAccent else p.content
+    val description = listOfNotNull(
+        simLabel(chip),
+        str(R.string.sim_primary_mark).takeIf { isPrimary },
+        chip.displayName.takeIf { it.isNotBlank() },
+        str(R.string.sim_no_service).takeIf { chip.status == SimStatus.NO_SERVICE },
+    ).joinToString(", ")
+    GlassSurface(
+        modifier
+            .heightIn(min = 64.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = description
+                if (canPick) {
+                    role = Role.RadioButton
+                    this.selected = selected
+                }
+            },
+        shape = CircleShape,
+        strong = true,
+        tint = if (selected && canPick) p.accentFill() else null,
+        onClick = if (canPick) onPick else null,
+    ) {
+        Row(
+            Modifier.align(Alignment.Center).padding(horizontal = 12.dp, vertical = 8.dp).clearAndSetSemantics { },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            SimBadge(chip)
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text(simLabel(chip), color = textColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                val detail = if (chip.status == SimStatus.NO_SERVICE) str(R.string.sim_no_service) else chip.displayName
+                if (detail.isNotBlank()) Text(detail, color = textColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** El botón que llama. Sin número sigue a la vista, atenuado, para que se sepa dónde está. */
+@Composable
+private fun CallIconButton(chip: SimChip?, isPrimary: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val p = LocalGlass.current
+    val description = if (chip != null) {
+        str(
+            R.string.call_with,
+            listOfNotNull(simLabel(chip), str(R.string.sim_primary_mark).takeIf { isPrimary }, chip.displayName.takeIf { it.isNotBlank() }).joinToString(", "),
+        )
+    } else {
+        str(R.string.call)
+    }
+    Box(
+        Modifier
+            .size(64.dp)
+            .graphicsLayer { alpha = if (enabled) 1f else 0.45f }
+            .clip(CircleShape)
+            .background(CallGreen)
+            .border(2.dp, if (p.dark) Color.White.copy(alpha = 0.8f) else Color.Black.copy(alpha = 0.6f), CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics {
+                contentDescription = description
+                if (!enabled) disabled()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(styled(Icons.Rounded.Call), null, Modifier.size(30.dp), tint = readableOn(CallGreen))
     }
 }
 
@@ -347,14 +428,25 @@ fun PermissionGate(
 }
 
 /** "Agregar a contactos" por el intent estándar: abre Liquid Contacts o la app que corresponda. */
-fun addToContacts(context: Context, number: String): Boolean = try {
-    context.startActivity(
-        Intent(Intent.ACTION_INSERT_OR_EDIT).apply {
-            type = ContactsContract.Contacts.CONTENT_ITEM_TYPE
-            putExtra(ContactsContract.Intents.Insert.PHONE, number)
-        },
-    )
+/** Abre el intent en Liquid Contacts si está; si no, en la app de contactos que haya. */
+fun openInContacts(context: Context, intent: Intent): Boolean = try {
+    context.startActivity(Intent(intent).setPackage(LIQUID_CONTACTS))
     true
 } catch (e: ActivityNotFoundException) {
-    false
+    try {
+        context.startActivity(intent)
+        true
+    } catch (e2: ActivityNotFoundException) {
+        false
+    }
 }
+
+private const val LIQUID_CONTACTS = "dev.liquidcontacts"
+
+fun addToContacts(context: Context, number: String): Boolean = openInContacts(
+    context,
+    Intent(Intent.ACTION_INSERT_OR_EDIT).apply {
+        type = ContactsContract.Contacts.CONTENT_ITEM_TYPE
+        putExtra(ContactsContract.Intents.Insert.PHONE, number)
+    },
+)

@@ -213,4 +213,6 @@
     <string name="call_screen_incoming">Llamada entrante</string>
     <string name="call_failed">No se pudo hacer la llamada</string>
     <string name="call_busy">La línea está ocupada</string>
+    <string name="new_contact">Nuevo contacto</string>
+    <string name="edit_contact">Editar contacto</string>
 </resources>

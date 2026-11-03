@@ -37,4 +37,7 @@ object DevTools {
 
     @Composable
     fun SettingsCard() = Unit
+
+    @Composable
+    fun SafeModeHint(modifier: Modifier = Modifier) = Unit
 }

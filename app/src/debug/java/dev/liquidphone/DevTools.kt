@@ -315,11 +315,7 @@ object DevTools {
         if (!safe) return "rechazado: modo seguro apagado"
         val counted = counts()
         if (counted.any) return "rechazado: ya hay datos ficticios (${counted.contacts} contactos, ${counted.calls} llamadas)"
-        when (val foreign = foreignCount(context)) {
-            0 -> Unit
-            -1 -> return "rechazado: falta el permiso de contactos"
-            else -> return "rechazado: la agenda no está vacía ($foreign fichas ajenas). Frená y revisá"
-        }
+        if (foreignCount(context) == -1) return "rechazado: falta el permiso de contactos"
         val keys = chips.mapNotNull { it.account }
         if (keys.isEmpty()) return "rechazado: no se ven los chips"
         // Un número que ya está en la agenda no se usa: en otras apps aparecería como ese contacto.
@@ -545,6 +541,14 @@ object DevTools {
         lastResult.value = text
     }
 
+    /** Por qué no se ven los contactos reales: sin esto parece que la agenda estuviera rota. */
+    @Composable
+    fun SafeModeHint(modifier: Modifier = Modifier) {
+        val state by store.state.collectAsStateWithLifecycle()
+        if (!state.safeMode) return
+        GlassCard(modifier) { Text(str(R.string.dev_safe_hint), fontSize = 14.sp, color = LocalGlass.current.content) }
+    }
+
     /** Tarjeta de pruebas de Ajustes. Lo único que apaga el modo seguro y el simulacro es esto. */
     @Composable
     fun SettingsCard() {
@@ -595,7 +599,7 @@ object DevTools {
                 subtitle = str(R.string.dev_simulation_hint),
             )
             Text(str(R.string.dev_counts, c.contacts, c.calls), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(vertical = 8.dp))
-            if (c.foreign > 0) Text(str(R.string.dev_foreign, c.foreign), fontSize = 13.sp, color = p.danger, modifier = Modifier.padding(bottom = 8.dp))
+            if (c.foreign > 0) Text(str(R.string.dev_foreign, c.foreign), fontSize = 13.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 8.dp))
             if (result.isNotEmpty()) Text(result, fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 8.dp))
             GlassButton(str(R.string.dev_create), { scope.launch { log(generate(app, Repo.sims.state.value.chips)) } }, Modifier.fillMaxWidth(), enabled = !c.any && state.safeMode)
             if (c.any) DangerButton(str(R.string.dev_clear), { scope.launch { log(clear(app)) } }, Modifier.padding(top = 8.dp).fillMaxWidth())

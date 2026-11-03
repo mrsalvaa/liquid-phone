@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import dev.liquidphone.ui.glass.TitleTopPadding
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -129,7 +130,7 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Row(Modifier.fillMaxWidth().padding(top = TitleTopPadding), horizontalArrangement = Arrangement.End) {
                     GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings)
                 }
                 DialResults(text, results, numbers::format, onContact, Modifier.weight(1f))

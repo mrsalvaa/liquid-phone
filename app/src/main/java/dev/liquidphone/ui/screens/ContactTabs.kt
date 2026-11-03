@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import android.content.Intent
+import android.provider.ContactsContract
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.ui.platform.LocalContext
+import dev.liquidphone.DevTools
 import android.Manifest
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +97,7 @@ fun FavoritesTab(padding: PaddingValues, onSettings: () -> Unit, onOpen: (Long) 
                 Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp),
                 contentPadding = PaddingValues(bottom = padding.calculateBottomPadding()),
             ) {
+                if (favorites.isEmpty() && book.rows.isEmpty()) item("modo-seguro") { DevTools.SafeModeHint(Modifier.padding(8.dp)) }
                 if (favorites.isEmpty()) {
                     item("vacio") { EmptyState(str(R.string.favorites_empty), str(R.string.favorites_empty_hint), Modifier.padding(top = 40.dp)) }
                 }
@@ -112,6 +120,8 @@ fun ContactsTab(padding: PaddingValues, onSettings: () -> Unit, onAreaCode: () -
         val numbers by Repo.numbers.collectAsStateWithLifecycle()
         val settings by Stores.settings.state.collectAsStateWithLifecycle()
         var query by rememberSaveable { mutableStateOf("") }
+        val context = LocalContext.current
+        val toast = LocalToast.current
         val focus = LocalFocusManager.current
         val list = rememberLazyListState()
         val scope = rememberCoroutineScope()
@@ -131,7 +141,17 @@ fun ContactsTab(padding: PaddingValues, onSettings: () -> Unit, onAreaCode: () -
 
         Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
             Box(Modifier.padding(horizontal = 16.dp)) {
-                ScreenTitle(str(R.string.tab_contacts), actions = { GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings) })
+                ScreenTitle(
+                    str(R.string.tab_contacts),
+                    actions = {
+                        GlassIconButton(Icons.Rounded.PersonAdd, str(R.string.new_contact), {
+                            val intent = Intent(Intent.ACTION_INSERT).setType(ContactsContract.Contacts.CONTENT_TYPE)
+                            if (!openInContacts(context, intent)) toast(str(R.string.no_contacts_app))
+                        })
+                        Spacer(Modifier.width(8.dp))
+                        GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings)
+                    },
+                )
             }
             SearchField(query, { query = it }, str(R.string.search_contacts), str(R.string.clear_search), Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -152,6 +172,7 @@ fun ContactsTab(padding: PaddingValues, onSettings: () -> Unit, onAreaCode: () -
                             )
                         }
                     }
+                    if (book.rows.isEmpty()) item("modo-seguro") { DevTools.SafeModeHint(Modifier.padding(8.dp)) }
                     if (shown.isEmpty()) {
                         item("vacio") { EmptyState(str(R.string.contacts_empty), str(R.string.contacts_empty_hint), Modifier.padding(top = 40.dp)) }
                     }
