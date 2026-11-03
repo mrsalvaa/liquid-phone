@@ -201,8 +201,8 @@ class PhoneNumbersTest {
     fun elNueveYElQuinceSoloSeDescartanEnArgentina() {
         assertEquals("+34911234567", ar.exact("+34 91 123 45 67"))
         assertEquals("+34911234567", ar.exact("0034 91 123 45 67"))
-        assertEquals("+61412345678", ar.exact("+61 412 345 678"))
-        assertEquals("+61412345678", ar.exact("+61 4 1234 5678"))
+        assertEquals("+61491570156", ar.exact("+61 491 570 156"))
+        assertEquals("+61491570156", ar.exact("+61 4 9157 0156"))
         assertEquals("+19195550143", ar.exact("+1 919 555 0143"))
         // Un +1 con área que empieza con 9 tampoco pierde dígitos.
         assertEquals("+19155550143", ar.exact("+1 915 555 0143"))
@@ -214,15 +214,15 @@ class PhoneNumbersTest {
     @Test
     fun otrosPaisesSeComparanExactos() {
         val es = C("Madrid", listOf("+34 91 123 45 67"))
-        val au = C("Sídney", listOf("+61 412 345 678"))
-        val us = C("Washington", listOf("+1 202 955 0143"))
+        val au = C("Sídney", listOf("+61 491 570 156"))
+        val us = C("Washington", listOf("+1 202 555 0143"))
         val m = matcher(ar, es, au, us)
         assertEquals(PhoneMatch.One(es, approximate = false), m.match("0034 911 234 567"))
-        assertEquals(PhoneMatch.One(au, approximate = false), m.match("+61 4 1234 5678"))
-        assertEquals(PhoneMatch.One(us, approximate = false), m.match("+1 (202) 955-0143"))
-        // Mismos últimos 8 dígitos en otro país: los dos están completos, no coinciden.
-        assertEquals(PhoneMatch.None, m.match("+44 20 1234 5678"))
-        assertEquals(PhoneMatch.None, m.match("+1 303 955 0143"))
+        assertEquals(PhoneMatch.One(au, approximate = false), m.match("+61 4 9157 0156"))
+        assertEquals(PhoneMatch.One(us, approximate = false), m.match("+1 (202) 555-0143"))
+        // Otro país, y mismos últimos 8 dígitos con otra área: los dos están completos, no coinciden.
+        assertEquals(PhoneMatch.None, m.match("+44 20 7946 0143"))
+        assertEquals(PhoneMatch.None, m.match("+1 312 555 0143"))
     }
 
     @Test

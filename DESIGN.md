@@ -88,13 +88,22 @@ Los tests de `:core` no usan números argentinos que puedan ser de alguien, y `T
 - **Por qué no con 0:** es el prefijo de acceso, y además `localDigits` quita los ceros iniciales de un número local, por lo que esos tests dejarían de probar lo que deben.
 - **Por qué sirve:** `libphonenumber` acepta cualquier abonado en el área 11 (`11\d{8}`), así que la lógica se prueba igual.
 
-**Hasta dónde llega esto.** No se encontró una regla oficial que prohíba el 1 como primer dígito del abonado: es una inferencia a partir del plan de numeración presentado a la UIT y de que `libphonenumber` exige de 2 a 8 fuera del área 11. Revisar contra el plan vigente de ENACOM si eso importa.
+**"No asignable" es una inferencia, no una garantía.** No se encontró una regla oficial que prohíba el 1 como primer dígito del abonado. Sale de lo presentado a la UIT ([plan de Argentina](https://www.itu.int/dms_pub/itu-t/oth/02/02/T02020000090001MSWE.docx), [notificación](https://www.itu.int/itudoc/itu-t/number/a/arg/75464_ww9.doc)): el 0 está reservado a los prefijos de acceso y los servicios especiales usan `1XY`. También, de que `libphonenumber` exige de 2 a 8 fuera del área 11. Esos documentos son de 1997 a 1999. **Pendiente de baja prioridad:** contrastarlo con el plan vigente de ENACOM.
 
 **0800 y 0810** usan la misma forma (`0800 133 1234`), con menos respaldo: ahí no hay marcado local que choque.
 
 **Excepciones, con el número sin cambiar:** los del interior (áreas 351, 223 y 2966), listados en `TestNumbersGuardTest`. `libphonenumber` rechaza ahí el abonado con 0 o 1, y estos tests existen para probar áreas de 3 y 4 dígitos, así que deben ser válidos para la biblioteca: un número válido ahí no se puede garantizar como no asignable. Solo viven en los tests; nunca llegan al celu ni al sistema.
 
-**Otros países:** los `+1 202 555-0143`, `+1 919 555 0143` y `+1 915 555 0143` están en rango reservado. Los de España, Australia, Reino Unido (`+44 20 1234 5678`) y `+1 x 955 0143` son inventados con formato real, y no se cambiaron por no ser argentinos.
+**Otros países, con rangos reservados por su regulador:**
+
+| País | Número en los tests | Rango | Fuente |
+|---|---|---|---|
+| Estados Unidos | `+1 202 555 0143` y otras áreas | `555-0100` a `555-0199` | Reserva de la administración de numeración norteamericana para ficción |
+| Reino Unido | `+44 20 7946 0143` | `020 7946 0000` a `0999`; móvil `07700 900000` a `900999` | [Ofcom, números para drama](https://www.ofcom.org.uk/phones-and-broadband/phone-numbers/numbers-for-drama): no se asignan a clientes |
+| Australia | `+61 491 570 156` | Lista de números `0491 570 ...` | [ACMA, números para obras creativas](https://www.acma.gov.au/phone-numbers-use-tv-shows-films-and-creative-works) |
+| España | `+34 612 ...`, `+34 91 ...` | **Sin rango oficial encontrado**, así que no se cambiaron | Búsqueda sin resultados en CNMC y Plan Nacional de Numeración |
+
+Los rangos de Ofcom y ACMA salen de los resultados de búsqueda sobre esas páginas, porque el acceso directo falló. ACMA actualiza su lista y las copias difieren: revisar la página antes de reutilizar un número.
 
 ## Lecciones para messages
 
