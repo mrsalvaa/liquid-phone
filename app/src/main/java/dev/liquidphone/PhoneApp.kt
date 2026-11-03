@@ -11,6 +11,7 @@ class PhoneApp : Application() {
         super.onCreate()
         Strings.app = this
         Stores.init(this)
+        DevTools.init(this)
         Repo.init(this)
     }
 }

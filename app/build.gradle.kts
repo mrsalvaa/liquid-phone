@@ -80,6 +80,7 @@ android {
     // inventados): la release no las compila.
     sourceSets["profile"].java.srcDir("src/debug/java")
     sourceSets["profile"].manifest.srcFile("src/debug/AndroidManifest.xml")
+    sourceSets["profile"].res.srcDir("src/debug/res")
 
     lint {
         abortOnError = true

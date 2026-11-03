@@ -115,7 +115,7 @@ object Repo {
     }
 
     private fun loadBook(numbers: PhoneNumbers) {
-        val rows = contacts.summaries().sortedWith(compareBy(SpanishOrder()) { it.displayName })
+        val rows = DevTools.memoryContacts() ?: contacts.summaries().sortedWith(compareBy(SpanishOrder()) { it.displayName })
         _book.value = Book(
             rows = rows,
             matcher = PhoneMatcher(numbers, rows) { it.phones },
@@ -124,11 +124,15 @@ object Repo {
     }
 
     private fun loadCalls() {
-        _calls.value = callLog.rows()
+        _calls.value = DevTools.memoryCalls() ?: callLog.rows()
     }
 
     /** Borra entradas de recientes. Devuelve cuántas borró. */
-    fun deleteCalls(ids: Collection<Long>): Int = callLog.delete(ids)
+    fun deleteCalls(ids: Collection<Long>): Int {
+        val deleted = callLog.delete(ids)
+        DevTools.forgetCalls(ids)
+        return deleted
+    }
 
     /** El contacto de un número, si es uno solo. Con varios candidatos no se elige ninguno. */
     fun contactFor(number: String): ContactSummary? =

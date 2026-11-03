@@ -3,4 +3,22 @@
 <!-- Nombre distinto para no confundirla con el teléfono del celu ni con la release. -->
 <resources>
     <string name="app_name">Teléfono (prueba)</string>
+    <string name="dev_section">Pruebas (solo debug)</string>
+    <string name="dev_safe_mode">Modo de pruebas seguro</string>
+    <string name="dev_safe_mode_hint">Solo se ven datos ficticios. Apagado, no se puede capturar la pantalla.</string>
+    <string name="dev_safe_mode_off_title">¿Apagar el modo seguro?</string>
+    <string name="dev_safe_mode_off_text">La app va a mostrar tus contactos y llamadas reales. Hacelo solo para tu uso personal. Mientras esté apagado no se toman capturas de esta app.</string>
+    <string name="dev_simulation">Simulacro de llamadas</string>
+    <string name="dev_simulation_hint">El botón de llamar no marca: muestra qué haría.</string>
+    <string name="dev_simulation_off_title">¿Apagar el simulacro?</string>
+    <string name="dev_simulation_off_text">El botón de llamar va a hacer llamadas reales.</string>
+    <string name="dev_simulation_off_fake">El botón de llamar va a hacer llamadas reales. Hay datos ficticios en el celu: borralos antes y no hagas llamadas reales mientras existan.</string>
+    <string name="dev_turn_off">Apagar</string>
+    <string name="dev_create">Crear datos ficticios</string>
+    <string name="dev_clear">Borrar todos los datos ficticios</string>
+    <string name="dev_counts">En el celu: %1$d contactos ficticios, %2$d llamadas ficticias.</string>
+    <string name="dev_fake_banner">Hay %1$d llamadas y %2$d contactos ficticios en el celu. No hagas llamadas reales mientras existan.</string>
+    <string name="dev_simulated_call">Se llamaría a %1$s con %2$s</string>
+    <string name="dev_simulated_system">Se llamaría a %1$s; el chip lo elige el sistema</string>
+    <string name="dev_simulated_dialer">Se abriría el marcador del sistema con %1$s</string>
 </resources>

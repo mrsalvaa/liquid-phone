@@ -4,3 +4,9 @@
 -keepclassmembers class dev.liquidphone.data.** {
     *** Companion;
 }
+
+# Solo existe en debug y profile.
+-keep,includedescriptorclasses class dev.liquidphone.DevTools$**$$serializer { *; }
+-keepclassmembers class dev.liquidphone.DevTools$** {
+    *** Companion;
+}

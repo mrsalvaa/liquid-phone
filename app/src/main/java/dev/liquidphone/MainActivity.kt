@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val settings by Stores.settings.state.collectAsStateWithLifecycle()
+            DevTools.WindowGuard()
             GlassTheme(settings.glassStyle) {
                 GlassRoot(animated = settings.animatedBackground, floating = {}) {}
             }
