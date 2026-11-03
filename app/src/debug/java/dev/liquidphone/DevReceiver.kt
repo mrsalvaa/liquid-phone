@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
  *   adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_CLEAR -p dev.liquidphone.debug
  *   adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_MEMORY -p dev.liquidphone.debug --ei on 1
  *   adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_ACCOUNT_CHECK -p dev.liquidphone.debug
+ *   adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_CONTACT_CHECK -p dev.liquidphone.debug
  *   adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_STYLE -p dev.liquidphone.debug --ei background 0 --ei ui 0 --ei theme 1
  * El resultado sale en `adb logcat -d -s LiquidPhoneDev:I`: cantidades, nunca nombres ni números.
  *
@@ -34,6 +35,7 @@ class DevReceiver : BroadcastReceiver() {
                     "dev.liquidphone.DEV_GENERATE" -> DevTools.generate(context, sims.chips)
                     "dev.liquidphone.DEV_CLEAR" -> DevTools.clear(context)
                     "dev.liquidphone.DEV_ACCOUNT_CHECK" -> DevTools.accountCheck(context, sims.chips)
+                    "dev.liquidphone.DEV_CONTACT_CHECK" -> DevTools.contactCheck(context)
                     "dev.liquidphone.DEV_MEMORY" -> {
                         val on = intent.getIntExtra("on", 0) == 1
                         DevTools.setMemoryLists(on)

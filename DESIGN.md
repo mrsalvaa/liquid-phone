@@ -38,11 +38,40 @@ El chip principal es un ajuste de esta app, guardado como ranura (0 o 1), porque
 
 `CallDeciderTest` recorre todas las combinaciones de chips, estados, políticas, pedidos e historial y comprueba que el chip de una llamada sea siempre exactamente el pedido.
 
+## Rendimiento
+
+Build `profile` en el SM-S721B (pantalla de 120 Hz, 8,3 ms por cuadro), con 500 contactos y 500 llamadas en memoria y `dumpsys gfxinfo` del propio paquete. Desplazamientos automáticos de 18 pasadas:
+
+| Pantalla | Fondo | Cuadros lentos | p50 | p90 | p99 |
+|---|---|---|---|---|---|
+| Recientes | Liso (por defecto) | 1,90 % | 6 ms | 9 ms | 14 ms |
+| Contactos | Liso (por defecto) | 1,89 % | 6 ms | 8 ms | 15 ms |
+| Recientes | En movimiento | 6,80 % | 9 ms | 17 ms | 22 ms |
+| Contactos | En movimiento | 3,59 % | 8 ms | 15 ms | 19 ms |
+
+- Teclado con búsqueda T9 sobre 500 contactos, fondo liso: entre 13 y 19 ms por tecla (muestra chica, 7 teclas).
+- Con el fondo en movimiento el teclado dibuja unos 15 cuadros por segundo incluso en reposo, a 23 ms cada uno. Es un costo del fondo animado, que no es el predeterminado.
+- Arranque en frío: 215 ms.
+
+## Contraste
+
+Medido sobre capturas en 7 combinaciones de tema, estilo y fondo; es el peor valor de cada texto:
+
+| Texto | Peor contraste |
+|---|---|
+| Nombre en rojo de una perdida | 5,10:1 |
+| Texto secundario (hora) | 5,28:1 |
+| Botón de llamar destacado | 4,91:1 |
+| Iniciales del avatar | 5,27:1 |
+
+**Diferencias con la `ui/glass` de Contacts:** `readableOn` pasó de casi negro con umbral 0,45 a negro puro con 0,179, y `contentSecondary` de las paletas claras subió a 66 % de opacidad. Contacts tiene los dos problemas: iniciales a 2,35:1 y texto secundario a 3,97:1 en tema claro. `ReadableOnTest` recorre el espacio de colores.
+
 ## Lecciones para messages
 
 | Problema | Por qué pasaba | Solución |
 |---|---|---|
 | **`AGGREGATION_MODE_DISABLED` deja el contacto invisible.** Estuvo en el plan para que un contacto ficticio no se juntara con uno real. | La documentación dice que la ficha no tiene contacto y no sale en `Contacts`. | `AGGREGATION_MODE_SUSPENDED`, un nombre con "(prueba)" que nunca coincide con uno real, y el filtro excluye cualquier contacto que tenga fichas ajenas. |
+| **Otras apps ven los contactos ficticios.** En una sesión aparecieron 2 fichas ajenas, más nuevas que las ficticias, pegadas a contactos ficticios. Desaparecieron solas menos de 25 s después de borrarlos. | Algo del celu con sincronización de contactos lee la agenda; no se identificó qué, para no leer datos ajenos. | El filtro los ocultó, como debe. Preferir las listas en memoria (`DEV_MEMORY`), que ninguna otra app ve. `DEV_CONTACT_CHECK` lo mide solo con cantidades. |
 | **Filas ficticias en el registro pueden borrar filas reales.** | `CallLog.addCall` borra las más viejas de cada cuenta a partir de 500, y las ficticias cuentan. | 500 entradas solo en memoria; en el registro real unas 40, con tope de 450 por chip, un aviso mientras existan y borrarlas al terminar. |
 | **La `ui/glass` de Contacts no era la de Calendar `25ca0d6`.** | `DESIGN.md` de Contacts dice "sin cambios", pero después se agregó `pillVeil()`. | Comparar los archivos con `diff` antes de anotar un origen. |
 | **El chip principal del sistema puede no poder cambiarse.** | En el Samsung probado no hay forma de hacerlo. | Ajuste propio `primarySimSlot`, aclarando en pantalla que no toca el del sistema. Toda la lógica recibe la ranura, nunca asume la 0. |

@@ -120,7 +120,7 @@ fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boole
                     Modifier.semantics { selected = chosen },
                     subtitle = state.joinToString(" · ").ifEmpty { null },
                     onClick = { edit { it.copy(primarySimSlot = slot) } },
-                    leading = chip?.let { { SimBadge(it) } },
+                    leading = chip?.let { { SimBadge(it, Modifier.padding(end = 12.dp)) } },
                     trailing = { if (chosen) Icon(styled(Icons.Rounded.Check), null, tint = p.accentFg) },
                 )
             }

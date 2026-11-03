@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -126,6 +127,7 @@ fun ChipCallButton(chip: SimChip?, prominent: Boolean, enabled: Boolean, modifie
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = description
+                if (!enabled) disabled()
             },
         shape = CircleShape,
         strong = true,
@@ -147,7 +149,7 @@ fun ChipCallButton(chip: SimChip?, prominent: Boolean, enabled: Boolean, modifie
                 Text(chip?.let(::simLabel) ?: str(R.string.call), color = textColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 val detail = chip?.let { if (it.status == SimStatus.NO_SERVICE) str(R.string.sim_no_service) else it.displayName }
                 if (!detail.isNullOrBlank()) {
-                    Text(detail, color = textColor.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(detail, color = textColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

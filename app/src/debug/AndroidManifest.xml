@@ -19,6 +19,7 @@
                 <action android:name="dev.liquidphone.DEV_CLEAR" />
                 <action android:name="dev.liquidphone.DEV_MEMORY" />
                 <action android:name="dev.liquidphone.DEV_ACCOUNT_CHECK" />
+                <action android:name="dev.liquidphone.DEV_CONTACT_CHECK" />
                 <action android:name="dev.liquidphone.DEV_STYLE" />
             </intent-filter>
         </receiver>

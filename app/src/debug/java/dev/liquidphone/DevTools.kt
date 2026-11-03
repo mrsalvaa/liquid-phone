@@ -157,6 +157,57 @@ object DevTools {
             null,
         )?.use { c -> buildSet { while (c.moveToNext()) add(c.getLong(0)) } }.orEmpty()
 
+    /** Las fichas ajenas vistas pegadas a contactos ficticios, para comprobarlas después de limpiar. */
+    private var foreignSeen: Set<Long> = emptySet()
+
+    /**
+     * ¿Se juntó alguna ficha ficticia? Solo cantidades: de las fichas ajenas no se piden nombres,
+     * números ni cuentas, solo ids y estado, que no salen de acá. Después de limpiar dice si siguen
+     * existiendo y si les quedó algo ficticio pegado.
+     */
+    fun contactCheck(context: Context): String {
+        val resolver = context.contentResolver
+        val rows = resolver.query(
+            RawContacts.CONTENT_URI,
+            arrayOf(RawContacts.CONTACT_ID, RawContacts.AGGREGATION_MODE, RawContacts._ID),
+            "${RawContacts.SOURCE_ID} LIKE ? AND ${RawContacts.DELETED} = 0",
+            arrayOf("$SOURCE%"),
+            null,
+        )?.use { c -> buildList { while (c.moveToNext()) add(Triple(c.getLong(0), c.getInt(1), c.getLong(2))) } }.orEmpty()
+        val ids = rows.map { it.first }.toSet()
+        val oldestOwn = rows.minOfOrNull { it.third } ?: Long.MAX_VALUE
+
+        class Foreign(val raw: Long, val contact: Long, val mode: Int, val dirty: Int)
+        fun foreignWhere(where: String, args: Array<String>?) = resolver.query(
+            RawContacts.CONTENT_URI,
+            arrayOf(RawContacts._ID, RawContacts.CONTACT_ID, RawContacts.AGGREGATION_MODE, RawContacts.DIRTY),
+            where,
+            args,
+            null,
+        )?.use { c -> buildList { while (c.moveToNext()) add(Foreign(c.getLong(0), c.getLong(1), c.getInt(2), c.getInt(3))) } }.orEmpty()
+
+        val foreign = if (ids.isEmpty()) {
+            emptyList()
+        } else {
+            foreignWhere(
+                "${RawContacts.CONTACT_ID} IN (${ids.joinToString(",")}) AND ${RawContacts.DELETED} = 0 AND (${RawContacts.SOURCE_ID} IS NULL OR ${RawContacts.SOURCE_ID} NOT LIKE ?)",
+                arrayOf("$SOURCE%"),
+            )
+        }
+        foreignSeen = foreignSeen + foreign.map { it.raw }
+        val seen = if (foreignSeen.isEmpty()) {
+            emptyList()
+        } else {
+            foreignWhere("${RawContacts._ID} IN (${foreignSeen.joinToString(",")}) AND ${RawContacts.DELETED} = 0", null)
+        }
+        val modes = rows.groupingBy { it.second }.eachCount().toSortedMap()
+        return "fichasPropias=${rows.size} contactos=${ids.size} modos=$modes " +
+            "fichasAjenasPegadas=${foreign.size} anterioresALasPropias=${foreign.count { it.raw < oldestOwn }} " +
+            "modosAjenas=${foreign.groupingBy { it.mode }.eachCount().toSortedMap()} sucias=${foreign.count { it.dirty != 0 }} " +
+            "vistasAntes=${foreignSeen.size} siguen=${seen.size} modosVistas=${seen.groupingBy { it.mode }.eachCount().toSortedMap()} " +
+            "suciasVistas=${seen.count { it.dirty != 0 }} contactosDeVistas=${seen.map { it.contact }.toSet().size}"
+    }
+
     fun memoryContacts(): List<ContactSummary>? = if (memoryLists && safe) fakeSummaries else null
 
     fun memoryCalls(): List<CallRow>? = if (memoryLists && safe) fakeRows(Repo.sims.state.value.chips) else null
@@ -226,7 +277,12 @@ object DevTools {
                 type = listOf(CallType.INCOMING, CallType.OUTGOING, CallType.MISSED)[i % 3],
                 dateMillis = now - i * 3_600_000L,
                 durationSeconds = random.nextLong(600),
-                account = keys[i % keys.size],
+                // Cada tanto, una entrada de un chip que ya no está o sin cuenta (número retenido, etc.).
+                account = when {
+                    i % 40 == 7 -> AccountKey("$SOURCE" + "retirado", "retirado")
+                    i % 40 == 27 -> null
+                    else -> keys[i % keys.size]
+                },
             )
         }
     }

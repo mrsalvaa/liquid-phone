@@ -213,8 +213,9 @@ private fun Key(key: Char, onKey: (Char) -> Unit, onLong: (() -> Unit)?, modifie
         verticalArrangement = Arrangement.Center,
     ) {
         Text(key.toString(), fontSize = if (height < 56.dp) 22.sp else 28.sp, color = p.content, fontWeight = FontWeight.Medium)
-        if (letters.isNotEmpty() && height >= 56.dp) {
-            Text(letters, fontSize = 11.sp, color = p.contentSecondary, letterSpacing = 1.sp)
+        // La línea se reserva también sin letras, para que todos los dígitos queden alineados.
+        if (height >= 56.dp) {
+            Text(letters.ifEmpty { " " }, fontSize = 11.sp, color = p.contentSecondary, letterSpacing = 1.sp)
         }
     }
 }

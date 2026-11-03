@@ -55,7 +55,7 @@ import sys
 from PIL import Image
 image = Image.open(sys.argv[1])
 w, h = image.size
-top = round(h * 0.052)
+top = round(h * 0.04)
 bottom = round(h * 0.04)
 image.crop((0, top, w, h - bottom)).save(sys.argv[2])
 PY
