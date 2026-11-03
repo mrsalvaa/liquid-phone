@@ -26,18 +26,22 @@ marcador del sistema sigue instalado y es el que atiende las llamadas.
 
 **Qué es la SIM 1.** Es la ranura lógica 0 del sistema (`SubscriptionInfo.getSimSlotIndex() == 0`), sea física o eSIM, y no la bandeja de plástico. En el Samsung SM-S721B probado, con Android 16, la ranura 1 es la eSIM y la ranura 2 es la física. La documentación de Android avisa que ese índice puede repetirse o ser inválido; en esos casos la app pregunta, nunca adivina.
 
+**Chip principal.** Se elige en Ajustes (SIM 1 o SIM 2, con el nombre y el color de cada chip; por defecto, la SIM 1). Es para los celulares como los Samsung, donde a veces el sistema no deja cambiarlo. Vale solo en esta app: no cambia el chip predeterminado del sistema.
+
+Se guarda la ranura, no el chip. **Si cambiás los chips de lugar, el principal pasa a ser el que quedó en esa ranura.** Si la ranura guardada es inválida o el sistema informa ranuras repetidas, pregunta.
+
 **Chip para llamar con un toque** (recientes y favoritos), en Ajustes:
 
-1. Siempre el chip principal, la SIM 1. Es lo predeterminado.
+1. Siempre el chip principal. Es lo predeterminado.
 2. Preguntar siempre.
 3. La cuenta predeterminada del sistema.
-4. El último chip con el que llamaste a ese número, según las llamadas salientes del registro. Sin historial, la SIM 1.
+4. El último chip con el que llamaste a ese número, según las llamadas salientes del registro. Sin historial, el chip principal.
 
 **Reglas:**
 
-- Nunca cambia de chip en silencio, porque el otro puede tener otra tarifa. Si el que corresponde no está, no tiene servicio o estás en modo avión, pregunta.
-- En el teclado y en el detalle hay dos botones de llamar. Son una elección explícita y pasan por encima de la política. Si el chip tocado no tiene servicio, ofrece ese mismo (por si hay llamadas por Wi-Fi), el otro o cancelar.
-- Con un solo chip en la ranura 1 no se muestra ningún selector. Con un solo chip en la ranura 2 confirma en cada llamada: "SIM 1 no está. ¿Llamar con SIM 2?".
+- Nunca cambia de chip en silencio, porque el otro puede tener otra tarifa. Si el chip principal no está, está desactivado, no tiene servicio o estás en modo avión, confirma cada vez nombrando el otro: "El chip principal no está. ¿Llamar con [otro chip]?".
+- En el teclado y en el detalle hay dos botones de llamar: primero y destacado el principal, después el otro. Son una elección explícita y pasan por encima de la política. Si el chip tocado no tiene servicio, ofrece ese mismo (por si hay llamadas por Wi-Fi), el otro o cancelar.
+- Con un solo chip no hay selector. Si ese chip es el principal, llama sin preguntar; si no lo es, vale la misma confirmación en cada llamada.
 - En recientes cada entrada muestra su chip y se puede filtrar por chip. Una entrada de un chip que ya no está se muestra como tal, sin adivinar. El detalle permite devolver la llamada con el chip original.
 - **Emergencias:** siempre `ACTION_DIAL` sin chip, por el flujo estándar del sistema. La app no las reimplementa ni las intercepta.
 - **Códigos con `*` y `#`:** también van al marcador del sistema.
@@ -51,7 +55,7 @@ Se piden en el momento de usarlos, después de explicar para qué. Si negás cua
 | Permiso | Para qué | Si lo negás |
 |---|---|---|
 | `READ_CONTACTS` | Buscar desde el teclado, poner nombres y mostrar favoritos | Se marca sin nombres |
-| `READ_CALL_LOG` | Recientes y "el último chip usado" | Sin recientes; esa política usa la SIM 1 |
+| `READ_CALL_LOG` | Recientes y "el último chip usado" | Sin recientes; esa política usa el chip principal |
 | `WRITE_CALL_LOG` | Borrar entradas de recientes; se pide al borrar | No se puede borrar |
 | `READ_PHONE_STATE` | Listar los chips y las cuentas de llamada | Sin selector; decide el sistema |
 | `CALL_PHONE` | Llamar con el chip elegido | Se abre el marcador del sistema con el número |

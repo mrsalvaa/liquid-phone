@@ -43,8 +43,13 @@ data class AppSettings(
 
     // --- Teléfono ---
 
-    /** Política para un toque sin chip elegido (ver SimPolicy): 0 = SIM 1, el valor por defecto. */
+    /** Política para un toque sin chip elegido (ver SimPolicy): 0 = el chip principal, el valor por defecto. */
     val simPolicy: Int = 0,
+    /**
+     * Ranura del chip principal: 0 = SIM 1, 1 = SIM 2. Se guarda la ranura, nunca la cuenta: si los
+     * chips cambian de lugar, el principal cambia de significado. Solo vale en esta app.
+     */
+    val primarySimSlot: Int = 0,
     /** Pestaña al abrir: 0 = teclado, 1 = recientes, 2 = favoritos. */
     val startTab: Int = 0,
     /** Vibración leve al tocar las teclas. */

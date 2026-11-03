@@ -27,7 +27,13 @@ class CallDeciderTest {
         airplane: Boolean = false,
         last: AccountKey? = null,
         default: AccountKey? = null,
-    ) = CallDecider.decide(n, target, CallContext(chips, policy = policy, airplaneMode = airplane, lastOutgoing = last, systemDefault = default), emergency)
+        primarySlot: Int = 0,
+    ) = CallDecider.decide(
+        n,
+        target,
+        CallContext(chips, policy = policy, primarySlot = primarySlot, airplaneMode = airplane, lastOutgoing = last, systemDefault = default),
+        emergency,
+    )
 
     // --- Política del chip principal ---
 
@@ -38,13 +44,14 @@ class CallDeciderTest {
     @Test fun `SIM 1 sin servicio pregunta y no cae a la SIM 2`() {
         val down = sim1.copy(status = SimStatus.NO_SERVICE)
         val d = assertIs<CallDecision.Ask>(decide(chips = listOf(down, sim2)))
-        assertEquals(AskReason.NO_SERVICE, d.reason)
+        assertEquals(AskReason.PRIMARY_UNAVAILABLE, d.reason)
         assertEquals(down, d.suggested)
+        assertEquals(sim2, d.other)
         assertEquals(listOf(down, sim2), d.options)
     }
 
     @Test fun `modo avion pregunta aunque el chip diga que tiene servicio`() {
-        assertEquals(AskReason.NO_SERVICE, assertIs<CallDecision.Ask>(decide(airplane = true)).reason)
+        assertEquals(AskReason.PRIMARY_UNAVAILABLE, assertIs<CallDecision.Ask>(decide(airplane = true)).reason)
     }
 
     @Test fun `estado desconocido no se toma como falta de servicio`() {
@@ -59,20 +66,24 @@ class CallDeciderTest {
         }
     }
 
-    @Test fun `un solo chip en la ranura 2 confirma en cada llamada, sea cual sea el pedido`() {
+    @Test fun `un solo chip en la ranura 2 con la SIM 1 como principal confirma en cada llamada`() {
         val targets = listOf(CallTarget.UsePolicy, CallTarget.Slot(1), CallTarget.Original(keyB))
         for (target in targets) for (policy in SimPolicy.entries) {
             val d = assertIs<CallDecision.Ask>(decide(target, listOf(sim2), policy, last = keyB, default = keyB), "$target $policy")
-            assertEquals(AskReason.ONLY_SECONDARY, d.reason)
+            assertEquals(AskReason.PRIMARY_UNAVAILABLE, d.reason)
             assertEquals(listOf(sim2), d.options)
-            assertEquals(sim2, d.suggested)
+            assertEquals(sim2, d.other)
+            assertNull(d.suggested)
         }
     }
 
-    @Test fun `dos chips sin ninguno en la ranura 1 no elige`() {
+    @Test fun `dos chips sin ninguno en la ranura principal no elige ni nombra a ninguno`() {
         val a = sim1.copy(slotIndex = 1)
         val b = sim2.copy(slotIndex = 2)
-        assertEquals(AskReason.CHIP_GONE, assertIs<CallDecision.Ask>(decide(chips = listOf(a, b))).reason)
+        val d = assertIs<CallDecision.Ask>(decide(chips = listOf(a, b)))
+        assertEquals(AskReason.PRIMARY_UNAVAILABLE, d.reason)
+        assertNull(d.other)
+        assertEquals(listOf(a, b), d.options)
     }
 
     @Test fun `ranuras repetidas o invalidas no se adivinan`() {
@@ -90,9 +101,119 @@ class CallDeciderTest {
     @Test fun `chip activo sin cuenta de llamada no se ofrece ni se usa`() {
         val noAccount = sim1.copy(account = null)
         val d = assertIs<CallDecision.Ask>(decide(chips = listOf(noAccount, sim2)))
-        assertEquals(AskReason.NO_SERVICE, d.reason)
+        assertEquals(AskReason.PRIMARY_UNAVAILABLE, d.reason)
         assertEquals(listOf(sim2), d.options)
+        assertEquals(sim2, d.other)
         assertNull(d.suggested)
+    }
+
+    // --- El chip principal se elige: SIM 1 o SIM 2, cruzado con disponibilidad y políticas ---
+
+    /** (ranura principal, chip principal, el otro chip). */
+    private val primaries = listOf(Triple(0, sim1, sim2), Triple(1, sim2, sim1))
+
+    @Test fun `con los dos disponibles, cada politica respeta el principal elegido`() {
+        for ((slot, primary, other) in primaries) {
+            val chips = listOf(sim1, sim2)
+            assertEquals(CallDecision.Place(number, primary), decide(chips = chips, primarySlot = slot))
+            val asked = assertIs<CallDecision.Ask>(decide(chips = chips, policy = SimPolicy.ASK, primarySlot = slot))
+            assertEquals(AskReason.ALWAYS, asked.reason)
+            assertEquals(primary, asked.suggested)
+            assertEquals(CallDecision.Place(number, other), decide(chips = chips, policy = SimPolicy.SYSTEM_DEFAULT, default = other.account, primarySlot = slot))
+            assertEquals(CallDecision.SystemChooses(number), decide(chips = chips, policy = SimPolicy.SYSTEM_DEFAULT, primarySlot = slot))
+            assertEquals(CallDecision.Place(number, primary), decide(chips = chips, policy = SimPolicy.LAST_USED, primarySlot = slot))
+            assertEquals(CallDecision.Place(number, other), decide(chips = chips, policy = SimPolicy.LAST_USED, last = other.account, primarySlot = slot))
+        }
+    }
+
+    @Test fun `principal sin servicio nunca cae en silencio al otro`() {
+        for ((slot, primary, other) in primaries) {
+            val down = primary.copy(status = SimStatus.NO_SERVICE)
+            val chips = listOf(down, other).sortedBy { it.slotIndex }
+            val cases = listOf(
+                decide(chips = chips, primarySlot = slot),
+                decide(chips = chips, policy = SimPolicy.SYSTEM_DEFAULT, default = primary.account, primarySlot = slot),
+                decide(chips = chips, policy = SimPolicy.LAST_USED, primarySlot = slot),
+                decide(chips = chips, policy = SimPolicy.LAST_USED, last = primary.account, primarySlot = slot),
+                decide(CallTarget.Slot(slot), chips, primarySlot = slot),
+                decide(CallTarget.Original(primary.account), chips, primarySlot = slot),
+            )
+            for (d in cases) {
+                val ask = assertIs<CallDecision.Ask>(d)
+                assertEquals(AskReason.PRIMARY_UNAVAILABLE, ask.reason)
+                assertEquals(other, ask.other)
+                assertEquals(down, ask.suggested)
+                assertEquals(chips, ask.options)
+            }
+            assertEquals(AskReason.ALWAYS, assertIs<CallDecision.Ask>(decide(chips = chips, policy = SimPolicy.ASK, primarySlot = slot)).reason)
+        }
+    }
+
+    @Test fun `con el principal caido, lo que pide el otro chip a proposito se respeta`() {
+        for ((slot, primary, other) in primaries) {
+            val chips = listOf(primary.copy(status = SimStatus.NO_SERVICE), other)
+            assertEquals(CallDecision.Place(number, other), decide(CallTarget.Slot(other.slotIndex), chips, primarySlot = slot))
+            assertEquals(CallDecision.Place(number, other), decide(CallTarget.Original(other.account), chips, primarySlot = slot))
+            assertEquals(CallDecision.Place(number, other), decide(chips = chips, policy = SimPolicy.LAST_USED, last = other.account, primarySlot = slot))
+            assertEquals(CallDecision.Place(number, other), decide(chips = chips, policy = SimPolicy.SYSTEM_DEFAULT, default = other.account, primarySlot = slot))
+        }
+    }
+
+    @Test fun `modo avion pregunta con cualquier principal y cualquier politica`() {
+        for ((slot, primary, _) in primaries) for (policy in SimPolicy.entries) {
+            val d = decide(policy = policy, primarySlot = slot, airplane = true, default = primary.account, last = primary.account)
+            assertIs<CallDecision.Ask>(d, "$slot $policy")
+        }
+    }
+
+    @Test fun `un solo chip que es el principal llama sin preguntar con cualquier politica`() {
+        for ((slot, primary, _) in primaries) for (policy in SimPolicy.entries) {
+            val d = decide(chips = listOf(primary), policy = policy, primarySlot = slot, default = primary.account)
+            assertEquals(CallDecision.Place(number, primary), d, "$slot $policy")
+            assertEquals(CallDecision.Place(number, primary), decide(CallTarget.Slot(slot), listOf(primary), policy, primarySlot = slot))
+        }
+    }
+
+    @Test fun `un solo chip que no es el principal confirma nombrandolo, con cualquier pedido y politica`() {
+        for ((slot, _, other) in primaries) {
+            val targets = listOf(CallTarget.UsePolicy, CallTarget.Slot(other.slotIndex), CallTarget.Slot(slot), CallTarget.Original(other.account))
+            for (target in targets) for (policy in SimPolicy.entries) {
+                val d = assertIs<CallDecision.Ask>(decide(target, listOf(other), policy, primarySlot = slot, last = other.account, default = other.account), "$slot $target $policy")
+                assertEquals(AskReason.PRIMARY_UNAVAILABLE, d.reason)
+                assertEquals(other, d.other)
+                assertEquals(listOf(other), d.options)
+            }
+        }
+    }
+
+    @Test fun `los botones eligen ese chip sea cual sea el principal`() {
+        for ((slot, primary, other) in primaries) for (policy in SimPolicy.entries) {
+            assertEquals(CallDecision.Place(number, primary), decide(CallTarget.Slot(slot), policy = policy, primarySlot = slot))
+            assertEquals(CallDecision.Place(number, other), decide(CallTarget.Slot(other.slotIndex), policy = policy, primarySlot = slot))
+        }
+    }
+
+    @Test fun `un principal invalido en el ajuste pregunta con cualquier pedido`() {
+        for (slot in listOf(-1, 2, 99)) for (policy in SimPolicy.entries) {
+            for (target in listOf(CallTarget.UsePolicy, CallTarget.Slot(0), CallTarget.Original(keyA))) {
+                val d = assertIs<CallDecision.Ask>(decide(target, policy = policy, primarySlot = slot), "$slot $target $policy")
+                assertEquals(AskReason.AMBIGUOUS_SLOT, d.reason)
+                assertEquals(listOf(sim1, sim2), d.options)
+            }
+        }
+    }
+
+    @Test fun `ranuras repetidas preguntan con cualquier principal`() {
+        val repeated = listOf(sim1.copy(slotIndex = 1), sim2)
+        for ((slot, _, _) in primaries) {
+            assertEquals(AskReason.AMBIGUOUS_SLOT, assertIs<CallDecision.Ask>(decide(chips = repeated, primarySlot = slot)).reason)
+        }
+    }
+
+    @Test fun `la emergencia no depende del principal`() {
+        for (slot in listOf(0, 1, 99)) {
+            assertEquals(CallDecision.OpenSystemDialer(fakeEmergency, DialerReason.EMERGENCY), decide(n = fakeEmergency, primarySlot = slot))
+        }
     }
 
     // --- Las otras políticas ---
@@ -186,20 +307,23 @@ class CallDeciderTest {
         val keys = listOf(null, keyA, keyB, gone)
         val targets = listOf(CallTarget.UsePolicy, CallTarget.Slot(0), CallTarget.Slot(1)) + keys.map { CallTarget.Original(it) }
         var places = 0
-        for (chips in chipSets) for (target in targets) for (policy in SimPolicy.entries) for (last in keys) for (default in keys) for (airplane in listOf(false, true)) {
-            val d = decide(target, chips, policy, airplane = airplane, last = last, default = default)
+        for (slot in listOf(0, 1)) for (chips in chipSets) for (target in targets) for (policy in SimPolicy.entries) for (last in keys) for (default in keys) for (airplane in listOf(false, true)) {
+            val d = decide(target, chips, policy, airplane = airplane, last = last, default = default, primarySlot = slot)
             if (d !is CallDecision.Place) continue
             places++
+            val primary = chips.firstOrNull { it.slotIndex == slot }
+            assertTrue(chips.size > 1 || d.chip == primary, "único chip sin confirmar: principal=$slot $chips")
             val expected: SimChip? = when (target) {
                 is CallTarget.Slot -> chips.firstOrNull { it.slotIndex == target.slotIndex }
                 is CallTarget.Original -> chips.firstOrNull { it.account == target.account }
                 CallTarget.UsePolicy -> when (policy) {
-                    SimPolicy.PRIMARY, SimPolicy.ASK -> chips.firstOrNull { it.slotIndex == 0 }
+                    SimPolicy.PRIMARY -> primary
+                    SimPolicy.ASK -> primary.takeIf { chips.size == 1 }
                     SimPolicy.SYSTEM_DEFAULT -> chips.firstOrNull { it.account == default }
-                    SimPolicy.LAST_USED -> if (last == null) chips.firstOrNull { it.slotIndex == 0 } else chips.firstOrNull { it.account == last }
+                    SimPolicy.LAST_USED -> if (last == null) primary else chips.firstOrNull { it.account == last }
                 }
             }
-            assertEquals(expected, d.chip, "pedido=$target política=$policy chips=$chips")
+            assertEquals(expected, d.chip, "principal=$slot pedido=$target política=$policy chips=$chips")
             assertFalse(airplane)
             assertTrue(d.chip.status != SimStatus.NO_SERVICE && d.chip.account != null, "chip inutilizable: $chips")
         }

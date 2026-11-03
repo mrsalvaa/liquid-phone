@@ -18,7 +18,7 @@ Valores del cristal: la tabla de `DESIGN.md` de Liquid Contacts. Rojo destructiv
 
 ## Ajustes
 
-`data/AppSettings.kt`, en `files/settings.json`: los 8 campos de la suite con los mismos nombres y valores (`SettingsFormatTest` lo comprueba), `defaultCountry`, `defaultAreaCode` y `areaCodeNoticeDismissed` de Contacts, y los propios `simPolicy`, `startTab` y `keypadHaptics`. El modo seguro y el simulacro van aparte, en `files/dev_state.json`, que solo existe en debug.
+`data/AppSettings.kt`, en `files/settings.json`: los 8 campos de la suite con los mismos nombres y valores (`SettingsFormatTest` lo comprueba), `defaultCountry`, `defaultAreaCode` y `areaCodeNoticeDismissed` de Contacts, y los propios `simPolicy`, `primarySimSlot`, `startTab` y `keypadHaptics`. El modo seguro y el simulacro van aparte, en `files/dev_state.json`, que solo existe en debug.
 
 Íconos: los 5 estilos en el orden de siempre (Liquid por defecto, Material, Samsung, iPhone, Motorola) más monocromo. Los fondos y recipientes son los de Contacts; el dibujo es un tubo de teléfono.
 
@@ -30,8 +30,11 @@ Valores del cristal: la tabla de `DESIGN.md` de Liquid Contacts. Rojo destructiv
 2. **Emergencia:** marcador del sistema. Si la comprobación falla, se trata igual: `ACTION_DIAL` no marca solo. Va antes de permisos, chips y simulacro.
 3. Códigos con `*` o `#`: marcador del sistema.
 4. Sin `CALL_PHONE`: marcador del sistema. Sin `READ_PHONE_STATE`: decide el sistema.
-5. Ranuras repetidas o inválidas, o un único chip fuera de la ranura 1: preguntar.
-6. El chip que pide el botón o la política. Si se puede usar, ese y ningún otro. Si no, preguntar.
+5. Ranuras repetidas o inválidas, en el sistema o en el ajuste `primarySimSlot`: preguntar.
+6. El único chip activo no es el principal: confirmar en cada llamada, nombrándolo.
+7. El chip que pide el botón o la política. Si se puede usar, ese y ningún otro. Si no, preguntar; si era el principal, nombrando el otro.
+
+El chip principal es un ajuste de esta app, guardado como ranura (0 o 1), porque el Samsung del usuario no deja cambiar el del sistema. La cuenta no se guarda porque se trata como opaca: el costo es que al cambiar los chips de lugar el principal cambia de significado, y el README lo avisa. Tocar a propósito el botón del otro chip, o que la política apunte a él, no pregunta aunque el principal esté caído: no es un cambio silencioso, se pidió ese chip.
 
 `CallDeciderTest` recorre todas las combinaciones de chips, estados, políticas, pedidos e historial y comprueba que el chip de una llamada sea siempre exactamente el pedido.
 
@@ -42,6 +45,7 @@ Valores del cristal: la tabla de `DESIGN.md` de Liquid Contacts. Rojo destructiv
 | **`AGGREGATION_MODE_DISABLED` deja el contacto invisible.** Estuvo en el plan para que un contacto ficticio no se juntara con uno real. | La documentación dice que la ficha no tiene contacto y no sale en `Contacts`. | `AGGREGATION_MODE_SUSPENDED`, un nombre con "(prueba)" que nunca coincide con uno real, y el filtro excluye cualquier contacto que tenga fichas ajenas. |
 | **Filas ficticias en el registro pueden borrar filas reales.** | `CallLog.addCall` borra las más viejas de cada cuenta a partir de 500, y las ficticias cuentan. | 500 entradas solo en memoria; en el registro real unas 40, con tope de 450 por chip, un aviso mientras existan y borrarlas al terminar. |
 | **La `ui/glass` de Contacts no era la de Calendar `25ca0d6`.** | `DESIGN.md` de Contacts dice "sin cambios", pero después se agregó `pillVeil()`. | Comparar los archivos con `diff` antes de anotar un origen. |
+| **El chip principal del sistema puede no poder cambiarse.** | En el Samsung probado no hay forma de hacerlo. | Ajuste propio `primarySimSlot`, aclarando en pantalla que no toca el del sistema. Toda la lógica recibe la ranura, nunca asume la 0. |
 | **La ranura 1 no es la bandeja física.** | `getSimSlotIndex` es la ranura lógica: en el celu probado, la 0 es la eSIM. | Llamarla "SIM 1" como el sistema, y nunca deducir nada de `isEmbedded`. |
 | **`getPhoneAccount()` pide `READ_PHONE_NUMBERS`.** | Desde target 31. Ese permiso da el número de línea. | Nombre y color salen de `SubscriptionInfo`; `getPhoneAccount` no se usa. |
 | **El id de cuenta del registro podría ser un identificador del chip.** | Depende del celu y de la versión. En el celu probado no lo es. | `AccountKey` opaca: solo se compara y su `toString` no la muestra, con un test. |

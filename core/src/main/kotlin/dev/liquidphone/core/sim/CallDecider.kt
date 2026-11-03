@@ -70,6 +70,8 @@ data class CallContext(
     /** true si hay CALL_PHONE. */
     val canCall: Boolean = true,
     val policy: SimPolicy = SimPolicy.PRIMARY,
+    /** Ranura del chip principal, elegida en Ajustes (`primarySimSlot`): 0 = SIM 1, 1 = SIM 2. */
+    val primarySlot: Int = 0,
     val systemDefault: AccountKey? = null,
     /** Chip de la última llamada saliente a este número (ver CallLogTools.lastOutgoing). */
     val lastOutgoing: AccountKey? = null,
@@ -81,16 +83,19 @@ enum class AskReason {
     /** La política es preguntar siempre. */
     ALWAYS,
 
-    /** Hay un solo chip y no es la SIM 1: "SIM 1 no está. ¿Llamar con SIM 2?". */
-    ONLY_SECONDARY,
+    /**
+     * Tocaba el chip principal y no se puede usar (retirado, desactivado, sin servicio o modo avión),
+     * o el único chip activo no es el principal: "El chip principal no está. ¿Llamar con [otro]?".
+     */
+    PRIMARY_UNAVAILABLE,
 
-    /** El chip que tocaba está activo pero sin servicio o en modo avión. */
+    /** El chip que tocaba, que no es el principal, está activo pero sin servicio o en modo avión. */
     NO_SERVICE,
 
     /** El chip que tocaba ya no está. */
     CHIP_GONE,
 
-    /** El sistema informa ranuras repetidas o inválidas: no se adivina cuál es cuál. */
+    /** Ranuras repetidas o inválidas, en el sistema o en el ajuste: no se adivina cuál es cuál. */
     AMBIGUOUS_SLOT,
 }
 
@@ -108,9 +113,16 @@ sealed interface CallDecision {
 
     /**
      * Preguntar. [options] son los chips que se pueden elegir; [suggested] es el que tocaba, si
-     * sigue ahí (se ofrece igual por si hay llamadas por Wi-Fi).
+     * sigue ahí (se ofrece igual por si hay llamadas por Wi-Fi). [other] es el chip que se nombra en
+     * [AskReason.PRIMARY_UNAVAILABLE]: solo si hay exactamente uno, porque con dos no hay a quién nombrar.
      */
-    data class Ask(val number: String, val options: List<SimChip>, val reason: AskReason, val suggested: SimChip? = null) : CallDecision
+    data class Ask(
+        val number: String,
+        val options: List<SimChip>,
+        val reason: AskReason,
+        val suggested: SimChip? = null,
+        val other: SimChip? = null,
+    ) : CallDecision
 }
 
 /**
@@ -119,6 +131,9 @@ sealed interface CallDecision {
  * ese chip no se puede usar, se pregunta. Las emergencias van primero y no dependen de nada más.
  */
 object CallDecider {
+    /** Lo que se puede elegir en Ajustes: SIM 1 o SIM 2. */
+    val VALID_PRIMARY_SLOTS = 0..1
+
     fun decide(
         rawNumber: String,
         target: CallTarget,
@@ -144,19 +159,27 @@ object CallDecider {
         val chips = context.chips
         if (chips.none { it.account != null }) return CallDecision.OpenSystemDialer(number, DialerReason.NO_CHIPS)
 
+        val callable = chips.filter { it.account != null }
         fun ask(reason: AskReason, suggested: SimChip? = null) =
-            CallDecision.Ask(number, chips.filter { it.account != null }, reason, suggested?.takeIf { it.account != null })
+            CallDecision.Ask(number, callable, reason, suggested?.takeIf { it.account != null })
 
-        if (hasAmbiguousSlots(chips)) return ask(AskReason.AMBIGUOUS_SLOT)
-        chips.singleOrNull()?.let { if (it.slotIndex != 0) return ask(AskReason.ONLY_SECONDARY, it) }
+        if (hasAmbiguousSlots(chips) || context.primarySlot !in VALID_PRIMARY_SLOTS) return ask(AskReason.AMBIGUOUS_SLOT)
 
-        val primary = chips.firstOrNull { it.slotIndex == 0 }
+        val primary = chips.firstOrNull { it.slotIndex == context.primarySlot }
+        val primaryUnavailable = ask(AskReason.PRIMARY_UNAVAILABLE, primary)
+            .copy(other = callable.filter { it != primary }.singleOrNull())
+
+        // El único chip activo no es el principal: se confirma siempre, sea cual sea el pedido.
+        if (chips.size == 1 && primary == null) return primaryUnavailable
+
         val wanted: SimChip = when (target) {
             is CallTarget.Slot -> chips.firstOrNull { it.slotIndex == target.slotIndex }
+                ?: return if (target.slotIndex == context.primarySlot) primaryUnavailable else ask(AskReason.CHIP_GONE)
             is CallTarget.Original -> target.account?.let { key -> chips.firstOrNull { it.account == key } }
+                ?: return ask(AskReason.CHIP_GONE)
             CallTarget.UsePolicy -> when (context.policy) {
-                SimPolicy.PRIMARY -> primary
-                SimPolicy.ASK -> if (chips.size > 1) return ask(AskReason.ALWAYS) else primary
+                SimPolicy.PRIMARY -> primary ?: return primaryUnavailable
+                SimPolicy.ASK -> if (chips.size > 1) return ask(AskReason.ALWAYS, primary) else primary ?: return primaryUnavailable
                 SimPolicy.SYSTEM_DEFAULT -> {
                     val default = context.systemDefault ?: return CallDecision.SystemChooses(number)
                     // Una cuenta que no es de un chip (p. ej. SIP): la eligió el usuario en el sistema.
@@ -164,12 +187,17 @@ object CallDecider {
                 }
                 SimPolicy.LAST_USED -> {
                     val last = context.lastOutgoing
-                    if (last == null) primary else chips.firstOrNull { it.account == last }
+                    if (last == null) primary ?: return primaryUnavailable
+                    else chips.firstOrNull { it.account == last } ?: return ask(AskReason.CHIP_GONE)
                 }
             }
-        } ?: return ask(AskReason.CHIP_GONE)
+        }
 
-        return if (usable(wanted, context)) CallDecision.Place(number, wanted) else ask(AskReason.NO_SERVICE, wanted)
+        return when {
+            usable(wanted, context) -> CallDecision.Place(number, wanted)
+            wanted == primary -> primaryUnavailable
+            else -> ask(AskReason.NO_SERVICE, wanted)
+        }
     }
 
     fun usable(chip: SimChip, context: CallContext): Boolean =

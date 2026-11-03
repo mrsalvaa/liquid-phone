@@ -26,18 +26,22 @@ and handles calls.
 
 **What SIM 1 is.** It's the system's logical slot 0 (`SubscriptionInfo.getSimSlotIndex() == 0`), physical or eSIM, not the plastic tray. On the tested Samsung SM-S721B with Android 16, slot 1 is the eSIM and slot 2 is the physical SIM. Android's documentation warns the index may repeat or be invalid; in those cases the app asks and never guesses.
 
+**Primary SIM.** You choose it in Settings (SIM 1 or SIM 2, shown with each SIM's name and color; SIM 1 by default). It's for phones like Samsung's, where the system sometimes doesn't let you change it. It applies to this app only: it doesn't change the system's default SIM.
+
+The slot is what gets saved, not the SIM. **If you swap your SIMs, the primary becomes whichever one is now in that slot.** If the saved slot is invalid or the system reports repeated slots, the app asks.
+
 **SIM for one-tap calls** (recents and favorites), in Settings:
 
-1. Always the primary SIM, SIM 1. This is the default.
+1. Always the primary SIM. This is the default.
 2. Always ask.
 3. The system default account.
-4. The last SIM you called that number with, from the outgoing calls in the log. No history: SIM 1.
+4. The last SIM you called that number with, from the outgoing calls in the log. No history: the primary SIM.
 
 **Rules:**
 
-- It never switches SIMs silently, since the other one may have a different rate. If the right one is missing, has no service or the phone is in airplane mode, it asks.
-- The keypad and details have two call buttons. They are an explicit choice and override the policy. If the tapped SIM has no service, it offers that one (in case of Wi-Fi calling), the other one or cancel.
-- With a single SIM in slot 1, no selector is shown. With a single SIM in slot 2, it confirms on every call: "SIM 1 is not there. Call with SIM 2?".
+- It never switches SIMs silently, since the other one may have a different rate. If the primary SIM is missing, disabled, has no service or the phone is in airplane mode, it confirms every time and names the other one: "The primary SIM is not there. Call with [other SIM]?".
+- The keypad and details have two call buttons: the primary first and highlighted, then the other. They are an explicit choice and override the policy. If the tapped SIM has no service, it offers that one (in case of Wi-Fi calling), the other one or cancel.
+- With a single SIM there is no selector. If it's the primary, it calls without asking; if it isn't, the same confirmation applies on every call.
 - In recents each entry shows its SIM and can be filtered by SIM. An entry from a SIM no longer present is shown as such, without guessing. The detail screen can call back with the original SIM.
 - **Emergencies:** always `ACTION_DIAL` with no SIM, through the system's standard flow. The app doesn't reimplement or intercept them.
 - **Codes with `*` and `#`:** also go to the system dialer.
@@ -51,7 +55,7 @@ Requested when needed, after explaining why. If you deny any of them, the rest k
 | Permission | What for | If denied |
 |---|---|---|
 | `READ_CONTACTS` | Searching from the keypad, showing names and favorites | Dials without names |
-| `READ_CALL_LOG` | Recents and "last SIM used" | No recents; that policy uses SIM 1 |
+| `READ_CALL_LOG` | Recents and "last SIM used" | No recents; that policy uses the primary SIM |
 | `WRITE_CALL_LOG` | Deleting recents; requested when deleting | Can't delete |
 | `READ_PHONE_STATE` | Listing SIMs and call accounts | No selector; the system decides |
 | `CALL_PHONE` | Calling with the chosen SIM | The system dialer opens with the number |

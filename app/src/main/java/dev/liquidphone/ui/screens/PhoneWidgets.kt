@@ -61,6 +61,7 @@ import dev.liquidphone.core.sim.DialerReason
 import dev.liquidphone.core.sim.SimChip
 import dev.liquidphone.core.sim.SimStatus
 import dev.liquidphone.data.Repo
+import dev.liquidphone.data.Stores
 import dev.liquidphone.ui.glass.DialogSpec
 import dev.liquidphone.ui.glass.GlassButton
 import dev.liquidphone.ui.glass.GlassCard
@@ -83,6 +84,10 @@ fun simLabel(chip: SimChip): String = str(R.string.sim_label, chip.slotNumber)
 fun simDescription(chip: SimChip): String =
     listOfNotNull(simLabel(chip), chip.displayName.takeIf { it.isNotBlank() }, str(R.string.sim_no_service).takeIf { chip.status == SimStatus.NO_SERVICE }).joinToString(" · ")
 
+/** El chip dicho en una frase: "Nombre (SIM 2)", o solo "SIM 2" si no tiene nombre. */
+fun simName(chip: SimChip): String =
+    chip.displayName.takeIf { it.isNotBlank() }?.let { "$it (${simLabel(chip)})" } ?: simLabel(chip)
+
 /** Círculo del color del chip con el número de ranura. Null: una llamada de un chip desconocido. */
 @Composable
 fun SimBadge(chip: SimChip?, modifier: Modifier = Modifier) {
@@ -98,10 +103,23 @@ fun SimBadge(chip: SimChip?, modifier: Modifier = Modifier) {
 
 /** Botón de llamar. Con chip dice cuál; sin chip decide la política o el sistema. */
 @Composable
-fun ChipCallButton(chip: SimChip?, prominent: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun ChipCallButton(chip: SimChip?, prominent: Boolean, enabled: Boolean, modifier: Modifier = Modifier, isPrimary: Boolean = false, onClick: () -> Unit) {
     val p = LocalGlass.current
     val textColor = if (prominent) p.onAccent else p.content
-    val description = if (chip != null) str(R.string.call_with, simLabel(chip) + (chip.displayName.takeIf { it.isNotBlank() }?.let { ", $it" } ?: "")) else str(R.string.call)
+    // TalkBack: "Llamar con SIM 2, chip principal, Nombre, sin servicio".
+    val description = if (chip != null) {
+        str(
+            R.string.call_with,
+            listOfNotNull(
+                simLabel(chip),
+                str(R.string.sim_primary_mark).takeIf { isPrimary },
+                chip.displayName.takeIf { it.isNotBlank() },
+                str(R.string.sim_no_service).takeIf { chip.status == SimStatus.NO_SERVICE },
+            ).joinToString(", "),
+        )
+    } else {
+        str(R.string.call)
+    }
     GlassSurface(
         modifier
             .heightIn(min = 56.dp)
@@ -137,21 +155,30 @@ fun ChipCallButton(chip: SimChip?, prominent: Boolean, enabled: Boolean, modifie
 }
 
 /**
- * Los botones de llamar del teclado y del detalle. Con dos chips, siempre los dos: SIM 1 destacado y
- * SIM 2 secundario. Son una elección explícita, por encima de la política. Con un solo chip o sin
- * poder verlos, un solo botón.
+ * Los botones de llamar del teclado y del detalle. Con dos chips, siempre los dos: primero y destacado
+ * el principal, después el otro. Son una elección explícita, por encima de la política. Con un solo
+ * chip o sin poder verlos, un solo botón.
  */
 @Composable
 fun CallButtons(number: String, modifier: Modifier = Modifier) {
     val caller = LocalCaller.current
     val sims by Repo.sims.state.collectAsStateWithLifecycle()
+    val settings by Stores.settings.state.collectAsStateWithLifecycle()
+    val primarySlot = settings.primarySimSlot
     val enabled = number.any { it.isDigit() || it == '*' || it == '#' }
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         if (sims.chips.isEmpty()) {
             ChipCallButton(null, prominent = true, enabled = enabled, modifier = Modifier.weight(1f)) { caller(number, CallTarget.UsePolicy) }
         } else {
-            sims.chips.forEachIndexed { i, chip ->
-                ChipCallButton(chip, prominent = i == 0, enabled = enabled, modifier = Modifier.weight(if (i == 0) 1.15f else 1f)) {
+            sims.chips.sortedBy { if (it.slotIndex == primarySlot) -1 else it.slotIndex }.forEach { chip ->
+                val isPrimary = chip.slotIndex == primarySlot
+                ChipCallButton(
+                    chip,
+                    prominent = isPrimary || sims.chips.size == 1,
+                    enabled = enabled,
+                    modifier = Modifier.weight(if (isPrimary) 1.15f else 1f),
+                    isPrimary = isPrimary,
+                ) {
                     caller(number, CallTarget.Slot(chip.slotIndex))
                 }
             }
@@ -226,23 +253,50 @@ fun CallerHost(content: @Composable () -> Unit) {
 }
 
 private fun askTitle(decision: CallDecision.Ask): String {
-    val suggested = decision.suggested?.let(::simLabel)
+    val airplane = Repo.sims.state.value.airplane
     return when (decision.reason) {
         AskReason.ALWAYS -> str(R.string.ask_always)
-        AskReason.ONLY_SECONDARY -> str(R.string.ask_only_secondary, suggested ?: "")
-        AskReason.NO_SERVICE -> if (suggested != null) str(R.string.ask_no_service, suggested) else str(R.string.ask_always)
+        AskReason.PRIMARY_UNAVAILABLE -> {
+            val other = decision.other?.let(::simName)
+            when {
+                airplane -> str(R.string.ask_airplane)
+                decision.suggested == null && other != null -> str(R.string.ask_primary_gone_other, other)
+                decision.suggested == null -> str(R.string.ask_primary_gone)
+                other != null -> str(R.string.ask_primary_no_service_other, other)
+                else -> str(R.string.ask_primary_no_service)
+            }
+        }
+        AskReason.NO_SERVICE -> {
+            val suggested = decision.suggested
+            when {
+                airplane -> str(R.string.ask_airplane)
+                suggested != null -> str(R.string.ask_no_service, simLabel(suggested))
+                else -> str(R.string.ask_always)
+            }
+        }
         AskReason.CHIP_GONE -> str(R.string.ask_chip_gone)
         AskReason.AMBIGUOUS_SLOT -> str(R.string.ask_ambiguous)
     }
 }
 
-/** Un botón por chip, con nombre y color, más cancelar. El chip que tocaba va primero. */
+/**
+ * Un botón por chip, con nombre y color, más cancelar. Primero el chip que nombra la pregunta; si no
+ * nombra ninguno, el que tocaba. Sin ninguno de los dos, nada se destaca: no se sugiere un chip al azar.
+ */
 @Composable
 private fun ChipChoice(decision: CallDecision.Ask, dismiss: () -> Unit, onPick: (SimChip) -> Unit) {
-    val ordered = decision.options.sortedBy { if (it == decision.suggested) -1 else it.slotIndex }
+    val settings by Stores.settings.state.collectAsStateWithLifecycle()
+    val first = decision.other ?: decision.suggested
+    val ordered = decision.options.sortedBy { if (it == first) -1 else it.slotIndex }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ordered.forEachIndexed { i, chip ->
-            ChipCallButton(chip, prominent = i == 0, enabled = true, modifier = Modifier.fillMaxWidth()) { onPick(chip) }
+        ordered.forEach { chip ->
+            ChipCallButton(
+                chip,
+                prominent = chip == first,
+                enabled = true,
+                modifier = Modifier.fillMaxWidth(),
+                isPrimary = chip.slotIndex == settings.primarySimSlot,
+            ) { onPick(chip) }
         }
         GlassButton(str(R.string.cancel), dismiss, Modifier.fillMaxWidth())
     }

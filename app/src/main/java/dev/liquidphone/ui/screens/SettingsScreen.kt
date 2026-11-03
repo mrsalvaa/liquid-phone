@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.liquidphone.DevTools
 import dev.liquidphone.R
 import dev.liquidphone.core.phone.PhoneNumbers
+import dev.liquidphone.core.sim.CallDecider
 import dev.liquidphone.core.sim.SimPolicy
 import dev.liquidphone.core.text.Fold
 import dev.liquidphone.data.AppSettings
@@ -104,6 +105,26 @@ fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boole
 
         SectionLabel(str(R.string.calls_section))
         GlassCard {
+            // Siempre las dos ranuras, por si el chip principal todavía no está puesto.
+            Text(str(R.string.primary_sim), fontSize = 16.sp)
+            Text(str(R.string.primary_sim_hint), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 4.dp))
+            CallDecider.VALID_PRIMARY_SLOTS.forEach { slot ->
+                val chip = sims.chips.firstOrNull { it.slotIndex == slot }
+                val chosen = s.primarySimSlot == slot
+                val state = listOfNotNull(
+                    str(R.string.primary_sim_marked).takeIf { chosen },
+                    str(R.string.primary_sim_absent).takeIf { chip == null && sims.known },
+                )
+                SettingRow(
+                    chip?.let(::simName) ?: str(R.string.sim_label, slot + 1),
+                    Modifier.semantics { selected = chosen },
+                    subtitle = state.joinToString(" · ").ifEmpty { null },
+                    onClick = { edit { it.copy(primarySimSlot = slot) } },
+                    leading = chip?.let { { SimBadge(it) } },
+                    trailing = { if (chosen) Icon(styled(Icons.Rounded.Check), null, tint = p.accentFg) },
+                )
+            }
+            Spacer(Modifier.height(10.dp))
             // Con un solo chip no hay nada que elegir.
             if (sims.multiple) {
                 Text(str(R.string.sim_policy), fontSize = 16.sp)

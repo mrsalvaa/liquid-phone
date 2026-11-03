@@ -28,7 +28,15 @@ class SettingsFormatTest {
     }
 
     @Test
-    fun porDefectoLlamaConLaSim1() {
+    fun porDefectoLlamaConElChipPrincipalYEsLaSim1() {
         assertEquals(0, AppSettings().simPolicy)
+        assertEquals(0, AppSettings().primarySimSlot)
+    }
+
+    @Test
+    fun unArchivoViejoSinElAjusteUsaLaSim1() {
+        val old = Json { ignoreUnknownKeys = true }.decodeFromString(AppSettings.serializer(), """{"simPolicy":3}""")
+        assertEquals(3, old.simPolicy)
+        assertEquals(0, old.primarySimSlot)
     }
 }

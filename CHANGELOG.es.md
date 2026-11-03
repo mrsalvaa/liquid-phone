@@ -9,4 +9,5 @@
 ### Agregado
 - Teclado con T9 en español, recientes del registro del sistema, favoritos y contactos.
 - Doble SIM: política de chip, dos botones de llamar, chip y filtro en recientes, devolver con el chip original. Nunca hay un cambio silencioso de chip.
+- Chip principal elegible en Ajustes, solo para esta app: define la política por defecto, el botón destacado y a quién se le pide confirmar si no está disponible.
 - Modo de pruebas seguro, simulacro de llamadas y datos ficticios, solo en debug y profile.

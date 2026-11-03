@@ -155,6 +155,7 @@ object Repo {
             airplaneMode = snapshot.airplane,
             canCall = granted(Manifest.permission.CALL_PHONE),
             policy = SimPolicy.fromValue(Stores.settings.value.simPolicy),
+            primarySlot = Stores.settings.value.primarySimSlot,
             systemDefault = sims.systemDefault(),
             lastOutgoing = CallLogTools.lastOutgoing(_calls.value, number, numbers.value),
         )
