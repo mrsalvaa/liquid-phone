@@ -7,10 +7,8 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path android:pathData="M38,26h32a12,12 0,0 1,12,12v32a12,12 0,0 1,-12,12h-32a12,12 0,0 1,-12,-12v-32a12,12 0,0 1,12,-12z" android:fillColor="#FF0B57D0" />
-    <path android:pathData="M54,33a10,10 0,1 1,0,20a10,10 0,1 1,0,-20z" android:fillColor="#FFD3E3FD" />
-    <!-- Cuerpo entero: la elipse sigue de largo y el borde la tapa -->
-    <group>
-        <clip-path android:pathData="M38,29h32a9,9 0,0 1,9,9v32a9,9 0,0 1,-9,9h-32a9,9 0,0 1,-9,-9v-32a9,9 0,0 1,9,-9z" />
-        <path android:pathData="M29,84a25,26 0,1 1,50,0a25,26 0,1 1,-50,0z" android:fillColor="#FFD3E3FD" />
+    <!-- Tubo de teléfono -->
+    <group android:translateX="36" android:translateY="36" android:scaleX="1.5" android:scaleY="1.5">
+        <path android:pathData="M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.57,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z" android:fillColor="#FFD3E3FD" />
     </group>
 </vector>
