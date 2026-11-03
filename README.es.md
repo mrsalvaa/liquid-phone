@@ -70,7 +70,7 @@ Solo en debug y profile (`dev.liquidphone.debug`, "Teléfono (prueba)"). La rele
 
 - **Modo seguro, encendido por defecto.** La app solo ve contactos con origen `liquidphone-debug-N` y las llamadas que insertó la herramienta. El filtro va dentro de cada consulta SQL: lo real ni siquiera se lee. Se apaga únicamente a mano, en Ajustes. Apagado, la ventana no se puede capturar (`FLAG_SECURE`).
 - **Simulacro de llamadas, encendido por defecto.** Llamar muestra "Se llamaría a [número] con [SIM n]" y no marca. También se apaga solo a mano. Las emergencias no pasan por el simulacro.
-- **Datos ficticios.** La herramienta crea 24 contactos y 40 llamadas, y borra solo lo que creó, fila por fila. Mientras existan, un aviso lo recuerda: también se ven en las apps del sistema, y **no conviene hacer llamadas reales** hasta borrarlos, porque Android borra las llamadas más viejas de cada chip a partir de 500. Por eso la herramienta se niega a pasar de 450, y las 500 entradas de la prueba de rendimiento solo existen en memoria.
+- **Datos ficticios.** La herramienta crea 24 contactos y 40 llamadas, con números de rangos reservados para ficción y nombres con "(prueba)", y borra solo lo que creó, fila por fila. Si la agenda no está vacía, se niega a crear nada. Mientras existan, un aviso lo recuerda: también se ven en las apps del sistema, y **no conviene hacer llamadas reales** hasta borrarlos, porque Android borra las llamadas más viejas de cada chip a partir de 500. Por eso la herramienta se niega a pasar de 450, y las 500 entradas de la prueba de rendimiento solo existen en memoria.
 
 ```bash
 P=dev.liquidphone.debug
@@ -82,6 +82,12 @@ adb logcat -d -s LiquidPhoneDev:I
 ```
 
 El mismo borrado está en un botón de Ajustes. `tools/safe-capture.sh` saca una captura solo si el modo seguro está encendido y la app en primer plano, y recorta las barras del sistema. Ninguna orden por adb apaga el modo seguro ni el simulacro.
+
+## Lección: las apps de sincronización leen los contactos del sistema
+
+**Jamás crear contactos de prueba con números de formato real.** Un contacto creado en el sistema lo pueden leer todas las apps con permiso de contactos, y las que sincronizan pueden enviarlo a su servidor. Un número inventado con formato real puede ser la línea de alguien.
+
+En la primera prueba, con números argentinos inventados, aparecieron 2 fichas de otra app pegadas a contactos ficticios, y se fueron solas al borrarlos. Por eso la herramienta ahora solo crea números de rangos reservados para ficción (`+1 NXX 555-01XX` y `+44 7700 900XXX`), controla el rango antes de cada escritura y se niega a crear datos si la agenda no está vacía. Aun así, esos contactos también los pueden leer otras apps.
 
 ## Limitaciones conocidas
 
@@ -155,7 +161,7 @@ Solo para los tests, **no van en el APK**: kotlin-test (Apache-2.0) y JUnit 4 (E
 
 ### Auditoría
 
-- **Árbol completo** (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`): 96 artefactos, todos Apache-2.0 según sus POM; `libphonenumber` y `listenablefuture` declaran la licencia en su POM padre. Todos compatibles con GPL-3.0-or-later.
+- **Árbol completo** (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`): 96 artefactos, todos Apache-2.0 según sus POM. Dos no la declaran en su POM directo y la heredan del POM padre, ambos comprobados: `libphonenumber` 9.0.42 de `libphonenumber-parent` 9.0.42 y `listenablefuture` 1.0 de `guava-parent` 26.0-android. Todos compatibles con GPL-3.0-or-later.
 - **Sin Google Play Services, Firebase ni datatransport**, y sin `HttpURLConnection` ni OkHttp: 0 coincidencias en el código del APK de release.
 - **Manifest final:** solo los 5 permisos de arriba. Exportados: únicamente los 5 alias de íconos. `tools:node="remove"` quita el permiso interno de androidx.core, `androidx.startup` y el receptor de profileinstaller.
 - **F-Droid:** `allowBackup=false`, `dependenciesInfo` apagado, sin perfiles ART en el APK. Compose trae `libandroidx.graphics.path.so` (Apache-2.0, fuente en AOSP) desde Maven; el repo no tiene binarios.

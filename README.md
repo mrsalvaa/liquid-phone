@@ -70,7 +70,7 @@ Debug and profile only (`dev.liquidphone.debug`, "Phone (test)"). The release co
 
 - **Safe mode, on by default.** The app only sees contacts with source `liquidphone-debug-N` and calls inserted by the tool. The filter is inside each SQL query: real data isn't even read. It can only be turned off by hand, in Settings. While off, the window can't be captured (`FLAG_SECURE`).
 - **Call simulation, on by default.** Calling shows "Would call [number] with [SIM n]" and doesn't dial. It also only turns off by hand. Emergencies don't go through the simulation.
-- **Fake data.** The tool creates 24 contacts and 40 calls, and deletes only what it created, row by row. While they exist, a notice says so: they also show up in system apps, and **you shouldn't make real calls** until they're deleted, since Android deletes each SIM's oldest calls past 500. That's why the tool refuses to go past 450, and the 500 entries of the performance test only exist in memory.
+- **Fake data.** The tool creates 24 contacts and 40 calls, with numbers from ranges reserved for fiction and names with "(prueba)", and deletes only what it created, row by row. If the contacts aren't empty, it refuses to create anything. While they exist, a notice says so: they also show up in system apps, and **you shouldn't make real calls** until they're deleted, since Android deletes each SIM's oldest calls past 500. That's why the tool refuses to go past 450, and the 500 entries of the performance test only exist in memory.
 
 ```bash
 P=dev.liquidphone.debug
@@ -82,6 +82,12 @@ adb logcat -d -s LiquidPhoneDev:I
 ```
 
 The same delete is a button in Settings. `tools/safe-capture.sh` takes a capture only if safe mode is on and the app is in the foreground, and crops the system bars. No adb command turns off safe mode or the simulation.
+
+## Lesson: sync apps read the system contacts
+
+**Never create test contacts with real-format numbers.** A contact created in the system can be read by every app with the contacts permission, and sync apps may send it to their servers. A made-up number in a real format can be someone's line.
+
+In the first test, with made-up Argentine numbers, 2 entries from another app showed up attached to fake contacts, and went away on their own once those were deleted. That's why the tool now only creates numbers from ranges reserved for fiction (`+1 NXX 555-01XX` and `+44 7700 900XXX`), checks the range before every write and refuses to create data if the contacts aren't empty. Other apps can still read those contacts.
 
 ## Known limitations
 
@@ -155,7 +161,7 @@ For tests only, **not in the APK**: kotlin-test (Apache-2.0) and JUnit 4 (EPL-1.
 
 ### Audit
 
-- **Full tree** (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`): 96 artifacts, all Apache-2.0 according to their POMs; `libphonenumber` and `listenablefuture` declare the license in their parent POM. All compatible with GPL-3.0-or-later.
+- **Full tree** (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`): 96 artifacts, all Apache-2.0 according to their POMs. Two don't declare it in their direct POM and inherit it from the parent POM, both checked: `libphonenumber` 9.0.42 from `libphonenumber-parent` 9.0.42 and `listenablefuture` 1.0 from `guava-parent` 26.0-android. All compatible with GPL-3.0-or-later.
 - **No Google Play Services, Firebase or datatransport**, and no `HttpURLConnection` or OkHttp: 0 matches in the release APK's code.
 - **Final manifest:** only the 5 permissions above. Exported: only the 5 icon aliases. `tools:node="remove"` removes androidx.core's internal permission, `androidx.startup` and the profileinstaller receiver.
 - **F-Droid:** `allowBackup=false`, `dependenciesInfo` off, no ART profiles in the APK. Compose brings `libandroidx.graphics.path.so` (Apache-2.0, source in AOSP) from Maven; the repo has no binaries.

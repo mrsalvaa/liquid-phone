@@ -100,7 +100,7 @@ val LightGlass = GlassPalette(
     dark = false,
     base = Color(0xFFF1F3F8),
     content = Color(0xFF0E1222),
-    contentSecondary = Color(0xFF0E1222).copy(alpha = 0.66f),
+    contentSecondary = Color(0xFF0E1222).copy(alpha = 0.58f),
     tint = Color.White.copy(alpha = 0.32f),
     tintStrong = Color.White.copy(alpha = 0.5f),
     highlight = 0.4f,
@@ -188,6 +188,10 @@ private fun foregroundAccent(accent: Color, dark: Boolean): Color {
     }
 }
 
+/** Texto legible sobre un fondo de ese color. */
+fun readableOn(color: Color): Color =
+    if (GlassExceptions.ENABLED) GlassExceptions.readableOn(color) else if (color.luminance() > 0.45f) Color(0xFF0B0D12) else Color.White
+
 /** Texto legible sobre el cristal teñido de acento (acento al ~55 % sobre la base). */
 private fun onAccentGlass(accent: Color, base: Color): Color = readableOn(accent.copy(alpha = 0.55f).compositeOver(base))
 
@@ -204,7 +208,7 @@ val PlainDarkGlass = DarkGlass.copy(
 val PlainLightGlass = LightGlass.copy(
     base = Color(0xFFF2F3F5),
     content = Color(0xFF111318),
-    contentSecondary = Color(0xFF111318).copy(alpha = 0.66f),
+    contentSecondary = Color(0xFF111318).copy(alpha = 0.58f),
     tint = Color.White.copy(alpha = 0.7f),
     tintStrong = Color.White.copy(alpha = 0.85f),
     accent = Color(0xFF1A73E8),
@@ -229,7 +233,7 @@ val SolidDark = DarkGlass.copy(
 val SolidLight = LightGlass.copy(
     base = Color(0xFFEEEEF2),
     content = Color(0xFF111318),
-    contentSecondary = Color(0xFF111318).copy(alpha = 0.66f),
+    contentSecondary = Color(0xFF111318).copy(alpha = 0.55f),
     tint = Color.White,
     tintStrong = Color(0xFFF6F6F9),
     highlight = 0f,
@@ -331,7 +335,7 @@ fun glassPalette(settings: GlassStyle, dark: Boolean): GlassPalette {
 @Composable
 fun GlassTheme(settings: GlassStyle, content: @Composable () -> Unit) {
     val dark = isDarkTheme(settings.themeMode)
-    val p = glassPalette(settings, dark)
+    val p = GlassExceptions.palette(glassPalette(settings, dark))
     val scheme = if (dark) {
         darkColorScheme(
             primary = p.accent, onPrimary = p.onAccent,

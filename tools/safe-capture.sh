@@ -55,6 +55,9 @@ import sys
 from PIL import Image
 image = Image.open(sys.argv[1])
 w, h = image.size
+# En horizontal el 4 % de la altura no alcanza para tapar la barra de estado.
+if w > h:
+    sys.exit("NEGADO: el celu está en horizontal")
 top = round(h * 0.04)
 bottom = round(h * 0.04)
 image.crop((0, top, w, h - bottom)).save(sys.argv[2])

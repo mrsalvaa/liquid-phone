@@ -3,7 +3,7 @@ package dev.liquidphone
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import dev.liquidphone.ui.glass.readableOn
+import dev.liquidphone.ui.glass.GlassExceptions
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -19,7 +19,7 @@ class ReadableOnTest {
     fun siempreLlegaACuatroYMedio() {
         for (r in 0..255 step 15) for (g in 0..255 step 15) for (b in 0..255 step 15) {
             val background = Color(r, g, b)
-            val c = contrast(readableOn(background), background)
+            val c = contrast(GlassExceptions.readableOn(background), background)
             assertTrue(c >= 4.5f, "($r, $g, $b): $c")
         }
     }

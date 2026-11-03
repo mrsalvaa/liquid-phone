@@ -89,7 +89,7 @@ object DevTools {
         val calls: List<FakeCall> = emptyList(),
     )
 
-    data class FakeCounts(val calls: Int = 0, val contacts: Int = 0) {
+    data class FakeCounts(val calls: Int = 0, val contacts: Int = 0, val foreign: Int = 0) {
         val any: Boolean get() = calls > 0 || contacts > 0
     }
 
@@ -157,55 +157,34 @@ object DevTools {
             null,
         )?.use { c -> buildSet { while (c.moveToNext()) add(c.getLong(0)) } }.orEmpty()
 
-    /** Las fichas ajenas vistas pegadas a contactos ficticios, para comprobarlas después de limpiar. */
-    private var foreignSeen: Set<Long> = emptySet()
-
     /**
-     * ¿Se juntó alguna ficha ficticia? Solo cantidades: de las fichas ajenas no se piden nombres,
-     * números ni cuentas, solo ids y estado, que no salen de acá. Después de limpiar dice si siguen
-     * existiendo y si les quedó algo ficticio pegado.
+     * Cuántas fichas de la agenda no son de esta herramienta, sin leerlas: solo se cuenta. La agenda
+     * tiene que estar vacía durante las pruebas; si aparece algo, hay que frenar y avisar. -1: sin permiso.
      */
-    fun contactCheck(context: Context): String {
-        val resolver = context.contentResolver
-        val rows = resolver.query(
+    private fun foreignCount(context: Context): Int = try {
+        context.contentResolver.query(
             RawContacts.CONTENT_URI,
-            arrayOf(RawContacts.CONTACT_ID, RawContacts.AGGREGATION_MODE, RawContacts._ID),
+            arrayOf(RawContacts._ID),
+            "${RawContacts.DELETED} = 0 AND (${RawContacts.SOURCE_ID} IS NULL OR ${RawContacts.SOURCE_ID} NOT LIKE ?)",
+            arrayOf("$SOURCE%"),
+            null,
+        )?.use { it.count } ?: 0
+    } catch (e: SecurityException) {
+        -1
+    }
+
+    /** ¿Se juntó alguna ficha ficticia con otra? Solo cantidades. */
+    fun contactCheck(context: Context): String {
+        val own = context.contentResolver.query(
+            RawContacts.CONTENT_URI,
+            arrayOf(RawContacts.CONTACT_ID, RawContacts.AGGREGATION_MODE),
             "${RawContacts.SOURCE_ID} LIKE ? AND ${RawContacts.DELETED} = 0",
             arrayOf("$SOURCE%"),
             null,
-        )?.use { c -> buildList { while (c.moveToNext()) add(Triple(c.getLong(0), c.getInt(1), c.getLong(2))) } }.orEmpty()
-        val ids = rows.map { it.first }.toSet()
-        val oldestOwn = rows.minOfOrNull { it.third } ?: Long.MAX_VALUE
-
-        class Foreign(val raw: Long, val contact: Long, val mode: Int, val dirty: Int)
-        fun foreignWhere(where: String, args: Array<String>?) = resolver.query(
-            RawContacts.CONTENT_URI,
-            arrayOf(RawContacts._ID, RawContacts.CONTACT_ID, RawContacts.AGGREGATION_MODE, RawContacts.DIRTY),
-            where,
-            args,
-            null,
-        )?.use { c -> buildList { while (c.moveToNext()) add(Foreign(c.getLong(0), c.getLong(1), c.getInt(2), c.getInt(3))) } }.orEmpty()
-
-        val foreign = if (ids.isEmpty()) {
-            emptyList()
-        } else {
-            foreignWhere(
-                "${RawContacts.CONTACT_ID} IN (${ids.joinToString(",")}) AND ${RawContacts.DELETED} = 0 AND (${RawContacts.SOURCE_ID} IS NULL OR ${RawContacts.SOURCE_ID} NOT LIKE ?)",
-                arrayOf("$SOURCE%"),
-            )
-        }
-        foreignSeen = foreignSeen + foreign.map { it.raw }
-        val seen = if (foreignSeen.isEmpty()) {
-            emptyList()
-        } else {
-            foreignWhere("${RawContacts._ID} IN (${foreignSeen.joinToString(",")}) AND ${RawContacts.DELETED} = 0", null)
-        }
-        val modes = rows.groupingBy { it.second }.eachCount().toSortedMap()
-        return "fichasPropias=${rows.size} contactos=${ids.size} modos=$modes " +
-            "fichasAjenasPegadas=${foreign.size} anterioresALasPropias=${foreign.count { it.raw < oldestOwn }} " +
-            "modosAjenas=${foreign.groupingBy { it.mode }.eachCount().toSortedMap()} sucias=${foreign.count { it.dirty != 0 }} " +
-            "vistasAntes=${foreignSeen.size} siguen=${seen.size} modosVistas=${seen.groupingBy { it.mode }.eachCount().toSortedMap()} " +
-            "suciasVistas=${seen.count { it.dirty != 0 }} contactosDeVistas=${seen.map { it.contact }.toSet().size}"
+        )?.use { c -> buildList { while (c.moveToNext()) add(c.getLong(0) to c.getInt(1)) } }.orEmpty()
+        val modes = own.groupingBy { it.second }.eachCount().toSortedMap()
+        return "fichasPropias=${own.size} contactos=${own.map { it.first }.toSet().size} modos=$modes " +
+            "mezclados=${mixedOwnCount(context)} fichasAjenasEnLaAgenda=${foreignCount(context)}"
     }
 
     fun memoryContacts(): List<ContactSummary>? = if (memoryLists && safe) fakeSummaries else null
@@ -248,17 +227,7 @@ object DevTools {
     /** Con "(prueba)" el nombre nunca coincide con el de un contacto real ni se confunde con uno. */
     private fun fakeName(i: Int) = "${given[i % given.size]} ${family[i % family.size]} (prueba)"
 
-    /** Los formatos que aparecen en una agenda argentina: con 9, sin 9, con 15, fijo y sin área. */
-    private fun fakePhone(i: Int): String {
-        val n = 100 + i
-        return when (i % 5) {
-            0 -> "+54 9 11 5550-0$n"
-            1 -> "011 15 5550-0$n"
-            2 -> "+54 11 5550-0$n"
-            3 -> "0351 555-0$n"
-            else -> "15 5550-0$n"
-        }
-    }
+    private fun fakePhone(i: Int): String = FakeNumbers.number(i)
 
     private val fakeSummaries: List<ContactSummary> by lazy {
         (0 until 500).map { i ->
@@ -317,11 +286,17 @@ object DevTools {
         if (!safe) return "rechazado: modo seguro apagado"
         val counted = counts()
         if (counted.any) return "rechazado: ya hay datos ficticios (${counted.contacts} contactos, ${counted.calls} llamadas)"
+        when (val foreign = foreignCount(context)) {
+            0 -> Unit
+            -1 -> return "rechazado: falta el permiso de contactos"
+            else -> return "rechazado: la agenda no está vacía ($foreign fichas ajenas). Frená y revisá"
+        }
         val keys = chips.mapNotNull { it.account }
         if (keys.isEmpty()) return "rechazado: no se ven los chips"
         // Un número que ya está en la agenda no se usa: en otras apps aparecería como ese contacto.
         val pool = (0 until 200).asSequence().map(::fakePhone).filter { !collides(context, it) }.take(contactCount + 12).toList()
         if (pool.size < contactCount + 12) return "rechazado: pocos números libres"
+        check(pool.all(FakeNumbers::isReserved)) { "número fuera de los rangos reservados" }
         val rowsPerKey = callCount / keys.size + 1
         for (key in keys) {
             if (countFor(context, key) + rowsPerKey > CALL_LIMIT) return "rechazado: ese chip superaría $CALL_LIMIT filas"
@@ -361,6 +336,8 @@ object DevTools {
         val gone = AccountKey(keys.first().component, "$SOURCE" + "retirado")
         var calls = 0
         fun insert(number: String, callType: Int, date: Long, key: AccountKey?, presentation: Int = Calls.PRESENTATION_ALLOWED) {
+            // La fila de número oculto no tiene número; cualquier otra tiene que estar en un rango reservado.
+            check(number.isEmpty() || FakeNumbers.isReserved(number)) { "número fuera de los rangos reservados" }
             val values = android.content.ContentValues().apply {
                 put(Calls.NUMBER, number)
                 put(Calls.TYPE, callType)
@@ -454,7 +431,7 @@ object DevTools {
         } catch (e: SecurityException) {
             0
         }
-        return FakeCounts(store.value.calls.size, contacts)
+        return FakeCounts(store.value.calls.size, contacts, foreignCount(app))
     }
 
     private fun refreshCounts() {
@@ -464,7 +441,7 @@ object DevTools {
     /** Estado para adb. Solo cantidades y estados, nada que identifique a nadie. */
     fun status(chips: List<SimChip>, known: Boolean, airplane: Boolean): String {
         val c = counts()
-        return "safe=$safe sim=${simulating()} ownContacts=${c.contacts} ownCalls=${c.calls} known=$known airplane=$airplane memory=$memoryLists " +
+        return "safe=$safe sim=${simulating()} ownContacts=${c.contacts} ownCalls=${c.calls} foreignContacts=${c.foreign} known=$known airplane=$airplane memory=$memoryLists " +
             "shownContacts=${Repo.book.value.rows.size} shownCalls=${Repo.calls.value.size} " +
             "chips=${chips.size} slots=${chips.map { it.slotIndex }} embedded=${chips.map { it.embedded }} service=${chips.map { it.status }} accounts=${chips.map { it.account != null }}"
     }
@@ -532,8 +509,11 @@ object DevTools {
         }
     }
 
+    private val lastResult = MutableStateFlow("")
+
     private fun log(text: String) {
         Log.i(TAG, text)
+        lastResult.value = text
     }
 
     /** Tarjeta de pruebas de Ajustes. Lo único que apaga el modo seguro y el simulacro es esto. */
@@ -541,6 +521,7 @@ object DevTools {
     fun SettingsCard() {
         val state by store.state.collectAsStateWithLifecycle()
         val c by counts.collectAsStateWithLifecycle()
+        val result by lastResult.collectAsStateWithLifecycle()
         val dialog = LocalDialog.current
         val p = LocalGlass.current
         SectionLabel(str(R.string.dev_section))
@@ -585,6 +566,8 @@ object DevTools {
                 subtitle = str(R.string.dev_simulation_hint),
             )
             Text(str(R.string.dev_counts, c.contacts, c.calls), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(vertical = 8.dp))
+            if (c.foreign > 0) Text(str(R.string.dev_foreign, c.foreign), fontSize = 13.sp, color = p.danger, modifier = Modifier.padding(bottom = 8.dp))
+            if (result.isNotEmpty()) Text(result, fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 8.dp))
             GlassButton(str(R.string.dev_create), { scope.launch { log(generate(app, Repo.sims.state.value.chips)) } }, Modifier.fillMaxWidth(), enabled = !c.any && state.safeMode)
             if (c.any) DangerButton(str(R.string.dev_clear), { scope.launch { log(clear(app)) } }, Modifier.padding(top = 8.dp).fillMaxWidth())
         }
