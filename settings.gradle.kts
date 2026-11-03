@@ -17,4 +17,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "LiquidPhone"
 
+include(":app")
 include(":core")
