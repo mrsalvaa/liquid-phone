@@ -23,6 +23,7 @@ object DevTools {
     fun memoryCalls(): List<CallRow>? = null
     fun forgetCalls(ids: Collection<Long>) = Unit
     fun simulating(): Boolean = false
+    fun simulatedText(outcome: dev.liquidphone.calls.DialOutcome.Simulated): String? = null
     fun logDecision(what: String) = Unit
     fun changes(): Flow<Unit> = emptyFlow()
 

@@ -175,6 +175,16 @@ object DevTools {
 
     fun simulating(): Boolean = if (this::store.isInitialized) store.value.simulate else true
 
+    /** El mensaje del simulacro: "Se llamaría a [número] con [SIM n]". */
+    fun simulatedText(outcome: dev.liquidphone.calls.DialOutcome.Simulated): String? {
+        val chip = outcome.chip
+        return when {
+            outcome.systemDialer -> str(R.string.dev_simulated_dialer, outcome.number)
+            chip != null -> str(R.string.dev_simulated_call, outcome.number, dev.liquidphone.ui.screens.simLabel(chip))
+            else -> str(R.string.dev_simulated_system, outcome.number)
+        }
+    }
+
     fun logDecision(what: String) {
         Log.i(TAG, "simulacro: $what")
     }

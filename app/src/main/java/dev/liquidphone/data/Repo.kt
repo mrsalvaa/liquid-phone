@@ -75,6 +75,10 @@ object Repo {
     /** Los chips son de países distintos y todavía no se eligió: la interfaz pregunta. */
     val countryConflict: StateFlow<List<String>> = _countryConflict.asStateFlow()
 
+    private val _permissionTick = MutableStateFlow(0)
+    /** Cambia cada vez que se revisan los permisos: las pantallas vuelven a mirar cuáles hay. */
+    val permissionTick: StateFlow<Int> = _permissionTick.asStateFlow()
+
     private var contactsJob: Job? = null
     private var callsJob: Job? = null
 
@@ -97,6 +101,7 @@ object Repo {
 
     /** Se llama al abrir la app, al volver a ella y después de cada permiso. Solo desde el hilo principal. */
     fun start() {
+        _permissionTick.value++
         sims.start()
         chooseCountry(sims.state.value)
         if (contactsJob == null && granted(Manifest.permission.READ_CONTACTS)) {
