@@ -211,4 +211,6 @@
     </plurals>
     <string name="call_control_on">Activado</string>
     <string name="call_screen_incoming">Llamada entrante</string>
+    <string name="call_failed">No se pudo hacer la llamada</string>
+    <string name="call_busy">La línea está ocupada</string>
 </resources>

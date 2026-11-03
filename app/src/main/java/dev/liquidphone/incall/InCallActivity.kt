@@ -117,7 +117,10 @@ class InCallActivity : ComponentActivity() {
             SystemBarsFor(isDarkTheme(settings.themeMode))
             GlassTheme(settings.glassStyle) {
                 GlassRoot(animated = settings.animatedBackground) {
-                    InCallScreen(ui) { startActivity(Intent(this@InCallActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    InCallScreen(ui) {
+                        // "Agregar" siempre lleva al teclado, sea cual sea la última pantalla abierta.
+                        startActivity(Intent(this@InCallActivity, MainActivity::class.java).putExtra(MainActivity.EXTRA_DIAL, "").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
                 }
             }
             // Puede abrirse un instante antes de que llegue la llamada: se espera antes de cerrar.
@@ -307,7 +310,7 @@ private fun OngoingControls(ui: InCallUi, id: Int, onAdd: () -> Unit) {
             if (c.mute) add {
                 ToggleControl(str(if (ui.muted) R.string.call_unmute else R.string.call_mute), if (ui.muted) Icons.Rounded.MicOff else Icons.Rounded.Mic, ui.muted) { CallManager.setMuted(!ui.muted) }
             }
-            if (c.route) add {
+            if (c.route && InCallRules.routeCanChange(ui.routes)) add {
                 ToggleControl(routeLabel(ui.route), routeIcon(ui.route), ui.route == AudioRoute.SPEAKER, description = str(R.string.call_route_now, routeLabel(ui.route))) {
                     if (InCallRules.routeNeedsPicker(ui.routes)) picker = !picker else CallManager.setRoute(InCallRules.toggledRoute(ui.route, ui.routes))
                 }

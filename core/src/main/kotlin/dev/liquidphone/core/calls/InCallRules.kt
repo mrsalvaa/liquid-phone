@@ -93,6 +93,9 @@ object InCallRules {
         return shown.any { it.phase in listOf(CallPhase.ACTIVE, CallPhase.DIALING, CallPhase.CONNECTING, CallPhase.HOLDING) }
     }
 
+    /** Con una sola salida de audio no hay nada que cambiar. */
+    fun routeCanChange(available: Set<AudioRoute>): Boolean = available.size > 1
+
     /** Solo altavoz y auricular: el botón alterna. Con Bluetooth hay que elegir. */
     fun routeNeedsPicker(available: Set<AudioRoute>): Boolean = AudioRoute.BLUETOOTH in available
 
@@ -100,7 +103,8 @@ object InCallRules {
     fun toggledRoute(current: AudioRoute, available: Set<AudioRoute>): AudioRoute = when {
         current != AudioRoute.SPEAKER -> AudioRoute.SPEAKER
         AudioRoute.WIRED in available -> AudioRoute.WIRED
-        else -> AudioRoute.EARPIECE
+        AudioRoute.EARPIECE in available -> AudioRoute.EARPIECE
+        else -> current
     }
 
     /** Solo dígitos, asterisco y numeral: un tono por tecla. */

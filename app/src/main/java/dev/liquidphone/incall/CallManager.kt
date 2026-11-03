@@ -8,9 +8,11 @@ import android.os.Looper
 import android.os.PowerManager
 import android.telecom.Call
 import android.telecom.CallAudioState
+import android.telecom.DisconnectCause
 import android.telecom.InCallService
 import android.telecom.TelecomManager
 import android.telecom.VideoProfile
+import android.widget.Toast
 import dev.liquidphone.DevTools
 import dev.liquidphone.R
 import dev.liquidphone.core.calls.AudioRoute
@@ -91,8 +93,20 @@ object CallManager {
 
     fun onRemoved(call: Call) {
         call.unregisterCallback(callback)
+        explainFailure(call)
         calls.remove(idOf(call))
         publish()
+    }
+
+    /** Una saliente que no salió no puede cortarse sin decir nada: se muestra la causa de la red. */
+    private fun explainFailure(call: Call) {
+        val cause = call.details.disconnectCause ?: return
+        if (cause.code !in listOf(DisconnectCause.ERROR, DisconnectCause.BUSY, DisconnectCause.RESTRICTED)) return
+        val context = service ?: return
+        val text = cause.description?.toString()?.takeIf { it.isNotBlank() }
+            ?: str(if (cause.code == DisconnectCause.BUSY) R.string.call_busy else R.string.call_failed)
+        Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+        DevTools.logCall("fallo=${cause.code}")
     }
 
     /** Vuelve a calcular lo que se muestra: también cuando cambia la agenda o los chips. */
@@ -110,7 +124,8 @@ object CallManager {
         val phases = live.map { it.phase }
         if (phases != _ui.value.calls.map { it.live.phase }) DevTools.logCall("fases=$phases")
         _ui.value = next
-        updateProximity(ctx, InCallRules.proximity(live, next.route))
+        // Sin saber todavía la ruta de audio no se apaga la pantalla: podría ser el altavoz.
+        updateProximity(ctx, audio != null && InCallRules.proximity(live, next.route))
         ctx?.let { CallNotifications.update(it, next) }
     }
 

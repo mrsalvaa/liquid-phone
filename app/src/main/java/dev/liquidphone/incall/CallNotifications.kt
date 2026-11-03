@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.incall
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -93,6 +94,8 @@ object CallNotifications {
                     .setOngoing(true)
                     .setContentIntent(screen(context, 1))
                     .setFullScreenIntent(screen(context, 1), true)
+                    // La línea de texto de la notificación: el chip por el que entra la llamada.
+                    .apply { if (chip != null) setContentText(chip) }
                     .setStyle(
                         Notification.CallStyle.forIncomingCall(person, action(context, ACTION_DECLINE, id), screen(context, 2, answerId = id))
                             .apply { if (chip != null) setVerificationText(chip) },
@@ -175,6 +178,7 @@ object CallNotifications {
     }
 
     /** Se vieron las perdidas: sale la notificación y dejan de ser nuevas. */
+    @SuppressLint("MissingPermission") // El marcador predeterminado también puede, y si no, SecurityException.
     fun missedSeen(context: Context) {
         manager(context)?.cancel(ID_MISSED)
         CoroutineScope(Dispatchers.IO).launch {

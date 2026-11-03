@@ -207,4 +207,6 @@
     </plurals>
     <string name="call_control_on">On</string>
     <string name="call_screen_incoming">Incoming call</string>
+    <string name="call_failed">The call couldn\'t be made</string>
+    <string name="call_busy">The line is busy</string>
 </resources>

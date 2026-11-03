@@ -103,6 +103,12 @@ class InCallRulesTest {
         assertTrue(InCallRules.routeNeedsPicker(basic + AudioRoute.BLUETOOTH))
     }
 
+    @Test fun `con una sola salida de audio no hay nada que cambiar`() {
+        assertFalse(InCallRules.routeCanChange(setOf(AudioRoute.SPEAKER)))
+        assertTrue(InCallRules.routeCanChange(setOf(AudioRoute.SPEAKER, AudioRoute.EARPIECE)))
+        assertEquals(AudioRoute.SPEAKER, InCallRules.toggledRoute(AudioRoute.SPEAKER, setOf(AudioRoute.SPEAKER)))
+    }
+
     @Test fun `tonos solo con teclas validas`() {
         for (k in "0123456789*#") assertTrue(InCallRules.isDtmf(k), "$k")
         for (k in "aA+ -") assertFalse(InCallRules.isDtmf(k), "$k")

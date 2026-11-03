@@ -72,6 +72,7 @@ class Dialer(private val sims: SystemSims) {
     }
 
     /** Códigos con asterisco y numeral: los resuelve el sistema. La app nunca lee lo que respondan. */
+    @SuppressLint("MissingPermission") // El marcador predeterminado también puede, y si no, SecurityException.
     private fun mmi(context: Context, number: String): DialOutcome = try {
         val telecom = context.getSystemService(TelecomManager::class.java) ?: throw SecurityException()
         if (telecom.handleMmi(number)) DialOutcome.Sent else openSystemDialer(context, number)
