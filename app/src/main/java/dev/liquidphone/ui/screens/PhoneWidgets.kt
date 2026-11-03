@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -98,7 +99,9 @@ fun SimBadge(chip: SimChip?, modifier: Modifier = Modifier) {
         modifier.size(20.dp).clip(CircleShape).background(color).clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
-        Text(chip?.slotNumber?.toString() ?: "?", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = readableOn(color))
+        // Tamaño fijo, también con letra grande: el círculo no crece. El nombre del chip va al lado.
+        val fixed = (12f / LocalDensity.current.fontScale).sp
+        Text(chip?.slotNumber?.toString() ?: "?", fontSize = fixed, fontWeight = FontWeight.Bold, color = readableOn(color))
     }
 }
 

@@ -97,8 +97,7 @@ object CallNotifications {
                     // La línea de texto de la notificación: el chip por el que entra la llamada.
                     .apply { if (chip != null) setContentText(chip) }
                     .setStyle(
-                        Notification.CallStyle.forIncomingCall(person, action(context, ACTION_DECLINE, id), screen(context, 2, answerId = id))
-                            .apply { if (chip != null) setVerificationText(chip) },
+                        Notification.CallStyle.forIncomingCall(person, action(context, ACTION_DECLINE, id), screen(context, 2, answerId = id)),
                     )
                     .build(),
             )

@@ -5,7 +5,7 @@
 **English** | [Español](README.es.md)
 
 Dual-SIM phone app for Android, with the same liquid glass look as the rest of the suite (Calendar,
-Clock, Gallery, Calc, Contacts). **It is not a default dialer yet:** the system dialer stays installed
+Clock, Gallery, Calc, Contacts). You can use it alongside the system dialer, or choose it as your phone app so it also handles calls. The system dialer stays installed
 and handles calls.
 
 ## Privacy
@@ -43,7 +43,7 @@ The slot is what gets saved, not the SIM. **If you swap your SIMs, the primary b
 - The keypad and details have two call buttons: the primary first and highlighted, then the other. They are an explicit choice and override the policy. If the tapped SIM has no service, it offers that one (in case of Wi-Fi calling), the other one or cancel.
 - With a single SIM there is no selector. If it's the primary, it calls without asking; if it isn't, the same confirmation applies on every call.
 - In recents each entry shows its SIM and can be filtered by SIM. An entry from a SIM no longer present is shown as such, without guessing. The detail screen can call back with the original SIM.
-- **Emergencies:** always `ACTION_DIAL` with no SIM, through the system's standard flow. The app doesn't reimplement or intercept them.
+- **Emergencies:** always with no SIM chosen and through the system's standard flow, from any SIM. When it isn't your phone app they open the dialer; when it is, they go through Telecom. The app doesn't reimplement, block or intercept them.
 - **Codes with `*` and `#`:** also go to the system dialer.
 
 The phone state permission gives no access to ICCID, IMSI, IMEI or the line number, and the app doesn't ask for them. Visible name, color and slot are all it uses. The call account id is treated as opaque: it is only compared, never shown, stored or logged.
@@ -59,15 +59,34 @@ Requested when needed, after explaining why. If you deny any of them, the rest k
 | `WRITE_CALL_LOG` | Deleting recents; requested when deleting | Can't delete |
 | `READ_PHONE_STATE` | Listing SIMs and call accounts | No selector; the system decides |
 | `CALL_PHONE` | Calling with the chosen SIM | The system dialer opens with the number |
+| `POST_NOTIFICATIONS` | Incoming, in-progress and missed call; asked when choosing it as phone app | No such notifications; incoming opens the screen directly |
+| `USE_FULL_SCREEN_INTENT` | Show incoming calls over the lock screen | It stays a notification |
+| `WAKE_LOCK` | Turn the screen off with the proximity sensor | Can't be denied; no dialog for this permission |
 
 Nothing else: verified in the release APK. The manifest also blocks `INTERNET`, `ACCESS_NETWORK_STATE`, location and `READ_PHONE_NUMBERS` even if a library asked for them. Service state is read without location.
 
 Call log permissions are restricted on Android. When installing an APK by hand, the system may ask you to allow the app's restricted settings.
 
+## Using it as your phone app
+
+It's optional and your decision: the app also works without it. **Settings → Phone app → Use as phone app** shows the system dialog. Nothing asks for it on its own.
+
+While it is your phone app:
+
+- **Incoming call:** over the lock screen, with answer, reject and the SIM it comes in on. With the phone in use, as a notification with those same buttons. Ringtone and vibration are the system's: they follow your ringtone, your volume and Do Not Disturb.
+- **Call in progress:** mute, audio output, hold, tone keypad, add, swap, merge and hang up. Only what the network allows is shown. Hang up always stays in view.
+- **Proximity sensor:** turns the screen off with the phone at your ear; not on speaker, Bluetooth or headset.
+- **Notifications:** incoming, in progress and missed, the latter with the SIM.
+- **Number blocking:** in Settings or a call's details. It uses the phone's own list, which stays there, and the system rejects those calls before they ring. It stops blocking for a while after an emergency, so they can call you back. If you later change phone apps, the list stays in the phone.
+- **`tel:` links from other apps:** leave the number written on the keypad. They never dial on their own.
+
+**To go back to the previous dialer:** Settings → Apps → Choose default apps → Phone app, and pick the one you had. The system dialer stays installed the whole time.
+
 ## Safe test mode
 
 Debug and profile only (`dev.liquidphone.debug`, "Phone (test)"). The release contains none of this (0 matches in its code).
 
+- **As phone app:** in safe mode, a number that isn't fake shows as "Número oculto", in notifications too. To really use it, turn safe mode and the simulation off by hand.
 - **Safe mode, on by default.** The app only sees contacts with source `liquidphone-debug-N` and calls inserted by the tool. The filter is inside each SQL query: real data isn't even read. It can only be turned off by hand, in Settings. While off, the window can't be captured (`FLAG_SECURE`).
 - **Call simulation, on by default.** Calling shows "Would call [number] with [SIM n]" and doesn't dial. It also only turns off by hand. Emergencies don't go through the simulation.
 - **Fake data.** The tool creates 24 contacts and 40 calls, with numbers from ranges reserved for fiction and names with "(prueba)", and deletes only what it created, row by row. If the contacts aren't empty, it refuses to create anything. While they exist, a notice says so: they also show up in system apps, and **you shouldn't make real calls** until they're deleted, since Android deletes each SIM's oldest calls past 500. That's why the tool refuses to go past 450, and the 500 entries of the performance test only exist in memory.
@@ -91,7 +110,8 @@ In the first test, with made-up Argentine numbers, 2 entries from another app sh
 
 ## Known limitations
 
-- **Not the default dialer**, and doesn't handle `tel:` from other apps. Ongoing calls are shown by the system dialer.
+- The app sends no message when rejecting, doesn't record, and has no visual voicemail or video calls.
+- **Not tested on a real phone:** see "Qué se probó" in `DESIGN.md`.
 - Emergency calls can't choose a SIM and always need a tap on call in the system dialer.
 - Service state arrives a moment after opening the app; until then, service isn't assumed to be missing.
 - With Wi-Fi calling a SIM can show "no service" and still call: that's why the question offers using it anyway.
@@ -163,7 +183,7 @@ For tests only, **not in the APK**: kotlin-test (Apache-2.0) and JUnit 4 (EPL-1.
 
 - **Full tree** (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`): 96 artifacts, all Apache-2.0 according to their POMs. Two don't declare it in their direct POM and inherit it from the parent POM, both checked: `libphonenumber` 9.0.42 from `libphonenumber-parent` 9.0.42 and `listenablefuture` 1.0 from `guava-parent` 26.0-android. All compatible with GPL-3.0-or-later.
 - **No Google Play Services, Firebase or datatransport**, and no `HttpURLConnection` or OkHttp: 0 matches in the release APK's code.
-- **Final manifest:** only the 5 permissions above. Exported: only the 5 icon aliases. `tools:node="remove"` removes androidx.core's internal permission, `androidx.startup` and the profileinstaller receiver.
+- **Final manifest:** only the 8 permissions above. Exported: the 5 icon aliases, `MainActivity` (DIAL and VIEW `tel:`, never CALL), the call service (only Telecom can connect) and the missed-call receiver, which uses nothing from the intent. `tools:node="remove"` removes androidx.core's internal permission, `androidx.startup` and the profileinstaller receiver.
 - **F-Droid:** `allowBackup=false`, `dependenciesInfo` off, no ART profiles in the APK. Compose brings `libandroidx.graphics.path.so` (Apache-2.0, source in AOSP) from Maven; the repo has no binaries.
 
 <details>

@@ -11,4 +11,5 @@
 - Dual SIM: SIM policy, two call buttons, SIM and filter in recents, call back with the original SIM. SIMs are never switched silently.
 - Primary SIM chosen in Settings, for this app only: it sets the default policy, the highlighted button and when a confirmation is needed because it isn't available.
 - Better contrast in light theme: text on color always reaches 4.5:1. It's a local exception from the rest of the suite.
+- Optional phone app (dialer role): incoming call over the lock screen with the SIM, call in progress (mute, audio, hold, tones, add, swap, merge, hang up), proximity sensor, notifications, missed call with the SIM and number blocking with the phone's own list. New permissions: `POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT` and `WAKE_LOCK`.
 - Safe test mode, call simulation and fake data, debug and profile only.

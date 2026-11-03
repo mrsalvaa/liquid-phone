@@ -27,7 +27,7 @@ Valores del cristal: la tabla de `DESIGN.md` de Liquid Contacts. Rojo destructiv
 `core/sim/CallDecider.kt` decide; `calls/Dialer.kt` ejecuta y es el único lugar que marca. El orden importa:
 
 1. Sin número, nada.
-2. **Emergencia:** marcador del sistema. Si la comprobación falla, se trata igual: `ACTION_DIAL` no marca solo. Va antes de permisos, chips y simulacro.
+2. **Emergencia:** ver "Emergencias y marcador". Si la comprobación falla, se trata igual. Va antes de permisos, chips y simulacro.
 3. Códigos con `*` o `#`: marcador del sistema.
 4. Sin `CALL_PHONE`: marcador del sistema. Sin `READ_PHONE_STATE`: decide el sistema.
 5. Ranuras repetidas o inválidas, en el sistema o en el ajuste `primarySimSlot`: preguntar.
@@ -79,6 +79,63 @@ Los temas oscuros no cambian de opacidad; `readableOn` vale en todos. Los valore
 
 **Para revertir:** `GlassExceptions.ENABLED = false` deja el aspecto exacto de Contacts, y `ReadableOnTest` sigue probando la función de la capa. Para sacarla del todo, borrar el archivo y las dos llamadas de `Theme.kt`.
 
+## Emergencias y marcador
+
+| Situación | Emergencia | `*` y `#` | Sin permiso de llamar o sin chips |
+|---|---|---|---|
+| No es predeterminada | `ACTION_DIAL` al predeterminado | Igual | Igual |
+| Es predeterminada | `placeCall` sin cuenta; si falla, `ACTION_DIAL` al marcador del sistema | `handleMmi`, o `sendDialerSpecialCode` para `*#*#N#*#*` | `ACTION_DIAL` al marcador del sistema |
+
+**Por qué cambió.** La app ahora atiende `ACTION_DIAL`, porque el rol lo exige. Siendo predeterminada, un `ACTION_DIAL` sin destino volvería a ella misma, y una emergencia quedaría sin salir. Por eso `openSystemDialer` siempre elige paquete, y las emergencias van por Telecom, sin chip: el sistema usa el chip que pueda. Es decisión de `SystemRoutes`, en `:core`, con tests sobre números falsos. **Nunca se probó con un número real, ni siquiera en el emulador.**
+
+En la llamada, una emergencia solo ofrece silenciar, audio, tonos y colgar.
+
+## Pantalla de llamada
+
+`incall/PhoneInCallService` recibe las llamadas de Telecom y `incall/CallManager` es el único que actúa sobre ellas. Qué se ofrece lo decide `InCallRules`, en `:core`.
+
+- **Tono:** a cargo del sistema, sin `IN_CALL_SERVICE_RINGING`. Así respeta tono, volumen y No molestar sin código propio, y sin `VIBRATE`.
+- **Entrante:** `CallStyle` con pantalla completa. Bloqueado o con la pantalla apagada, abre la pantalla; en uso, notificación flotante. Es lo estándar de Android.
+- **Colgar y atender nunca se desplazan.** Tienen colores fijos: rojo `#C62828` y verde `#1B7F3B`.
+- **Bloqueo:** `BlockedNumberContract`, no una lista propia. Telecom corta antes de sonar y el sistema suspende el bloqueo después de una emergencia; hacerlo a mano arriesgaría eso.
+- **Perdidas:** Telecom avisa al marcador. El receptor no usa nada del intent, porque es exportado y cualquiera podría mandarlo.
+- **Modo seguro:** un número fuera de los rangos reservados se muestra como oculto, y en el registro solo se ven filas de esos rangos.
+
+## Qué se probó
+
+Etapa 2, en el emulador `liquid35` (Android 35), con números ficticios:
+
+| Prueba | Resultado |
+|---|---|
+| Rol con el diálogo del sistema | Se asigna y se puede cambiar |
+| Entrante con pantalla apagada y con PIN | Despierta y se atiende; al colgar sigue bloqueado |
+| Atender y rechazar, en pantalla y en notificación | Funcionan |
+| Silenciar | `FromApi=true` en el sistema |
+| Retener, reanudar, tonos | Funcionan; Telecom registra los tonos |
+| Agregar, cambiar, combinar, terminar, colgar el otro | Funcionan contra el módem del emulador |
+| Perdida con chip, tocar la notificación | `SIM 1 · T-Mobile`; lleva a recientes y sale la notificación |
+| Bloqueo | El bloqueado no suena, otro sí, al desbloquear suena |
+| `tel:` de otra app | Deja el número escrito, sin marcar |
+| Modo seguro con número no ficticio | "Número oculto", en notificación también |
+| Horizontal, letra al 150 %, temas | Colgar siempre visible |
+| Contraste del ícono de colgar | 5,62:1 en los 8 temas y estilos medidos |
+
+**No probado, y por qué:**
+
+| Qué | Por qué | Cómo probarlo |
+|---|---|---|
+| Altavoz y auricular, sensor de proximidad | El emulador solo tiene altavoz; la regla está en `:core` | Una llamada real en el celu |
+| Bluetooth y auriculares | El emulador no los simula | Con un dispositivo real |
+| Dos chips en pantalla, chip respetado por Samsung, elegir chip si el sistema lo pide | El emulador reporta dos ranuras pero un solo chip activo; la lógica se prueba con chips falsos en `:core` | Una llamada por chip |
+| TalkBack real | La imagen no trae TalkBack; sí se revisaron nombres y estados en el árbol de accesibilidad | Encenderlo y recorrer las pantallas |
+| Tono y vibración | El emulador corrió sin audio | Una llamada entrante real |
+| Mensaje de ocupado o llamada fallida | El módem atiende solo las salientes | Llamar a una línea ocupada |
+| Códigos MMI | No se dispararon | `*` y `#` de tu operador, si querés |
+| Emergencias | Prohibido probarlas: solo números falsos en `:core` | No se prueban |
+| `USE_FULL_SCREEN_INTENT` en One UI | Android 14 lo restringe según el rol; en el emulador anduvo | Entrante con el celu bloqueado |
+
+**Límites del emulador:** el módem rechaza números con `+` en salientes (se probó con `12025550101`) y este AVD tiene 16 contactos de otras apps, por lo que se usaron contactos en memoria y no se probó la lectura real de la agenda en esta etapa.
+
 ## Números de los tests
 
 Los tests de `:core` no usan números argentinos que puedan ser de alguien, y `TestNumbersGuardTest` lo controla sobre las fuentes de los tests. Argentina no tiene un rango reservado para ficción como `555-01XX`, así que se construyen:
@@ -118,7 +175,10 @@ Los rangos de Ofcom y ACMA salen de los resultados de búsqueda sobre esas pági
 | **La ranura 1 no es la bandeja física.** | `getSimSlotIndex` es la ranura lógica: en el celu probado, la 0 es la eSIM. | Llamarla "SIM 1" como el sistema, y nunca deducir nada de `isEmbedded`. |
 | **`getPhoneAccount()` pide `READ_PHONE_NUMBERS`.** | Desde target 31. Ese permiso da el número de línea. | Nombre y color salen de `SubscriptionInfo`; `getPhoneAccount` no se usa. |
 | **El id de cuenta del registro podría ser un identificador del chip.** | Depende del celu y de la versión. En el celu probado no lo es. | `AccountKey` opaca: solo se compara y su `toString` no la muestra, con un test. |
-| **Una llamada de emergencia no puede salir por `placeCall`.** | La documentación solo la permite al marcador predeterminado o al del sistema. | `ACTION_DIAL`, también con el simulacro encendido. |
+| **Una llamada de emergencia solo puede salir por `placeCall` siendo el marcador.** | La documentación solo la permite al predeterminado o al del sistema, y `ACTION_DIAL` sin destino volvería a esta app. | Según el rol: ver "Emergencias y marcador". También con el simulacro encendido. |
+| **Un botón de colgar dentro de un área que se desplaza se puede perder.** | En horizontal con el teclado abierto quedaba fuera de la pantalla. | Colgar y atender van fijos, afuera del área que se desplaza. |
+| **`CallStyle` no muestra `setVerificationText` en la notificación flotante.** | La línea de texto es la de `setContentText`. | El chip va en `setContentText`. |
+| **El módem del emulador rechaza `+` en salientes.** | Se ve como una llamada que se corta sola. | Probar sin `+`; distinto de un error de la app. |
 | **Las filas ficticias no prueban el formato real.** | Las escribe la misma herramienta con las mismas cuentas, así que siempre coinciden. | `DEV_ACCOUNT_CHECK` cuenta, solo cantidades, cuántas filas reales coinciden con los chips. |
 
 ### Para probar

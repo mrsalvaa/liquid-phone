@@ -5,8 +5,8 @@
 [English](README.md) | **Español**
 
 App de teléfono para Android con doble SIM, con la misma estética de cristal líquido que el resto de
-la suite (Calendar, Clock, Gallery, Calc, Contacts). **Todavía no es un marcador predeterminado:** el
-marcador del sistema sigue instalado y es el que atiende las llamadas.
+la suite (Calendar, Clock, Gallery, Calc, Contacts). Podés usarla junto al marcador del sistema, o elegirla
+como app de teléfono para que también atienda las llamadas. El marcador del sistema sigue instalado siempre.
 
 ## Privacidad
 
@@ -43,7 +43,7 @@ Se guarda la ranura, no el chip. **Si cambiás los chips de lugar, el principal 
 - En el teclado y en el detalle hay dos botones de llamar: primero y destacado el principal, después el otro. Son una elección explícita y pasan por encima de la política. Si el chip tocado no tiene servicio, ofrece ese mismo (por si hay llamadas por Wi-Fi), el otro o cancelar.
 - Con un solo chip no hay selector. Si ese chip es el principal, llama sin preguntar; si no lo es, vale la misma confirmación en cada llamada.
 - En recientes cada entrada muestra su chip y se puede filtrar por chip. Una entrada de un chip que ya no está se muestra como tal, sin adivinar. El detalle permite devolver la llamada con el chip original.
-- **Emergencias:** siempre `ACTION_DIAL` sin chip, por el flujo estándar del sistema. La app no las reimplementa ni las intercepta.
+- **Emergencias:** siempre sin chip y por el flujo estándar del sistema, desde cualquier chip. Sin ser la app de teléfono abren el marcador; siéndolo, salen por Telecom. La app no las reimplementa, no las bloquea ni las intercepta.
 - **Códigos con `*` y `#`:** también van al marcador del sistema.
 
 El permiso de leer el estado del teléfono no da acceso a ICCID, IMSI, IMEI ni al número de línea, y la app tampoco los pide. Nombre visible, color y ranura es todo lo que usa. El id de cuenta de llamada se trata como opaco: solo se compara, nunca se muestra, ni se guarda, ni se registra.
@@ -59,15 +59,34 @@ Se piden en el momento de usarlos, después de explicar para qué. Si negás cua
 | `WRITE_CALL_LOG` | Borrar entradas de recientes; se pide al borrar | No se puede borrar |
 | `READ_PHONE_STATE` | Listar los chips y las cuentas de llamada | Sin selector; decide el sistema |
 | `CALL_PHONE` | Llamar con el chip elegido | Se abre el marcador del sistema con el número |
+| `POST_NOTIFICATIONS` | Llamada entrante, en curso y perdida; se pide al elegirla como app de teléfono | Sin esas notificaciones; la entrante abre la pantalla directo |
+| `USE_FULL_SCREEN_INTENT` | Mostrar la entrante sobre la pantalla de bloqueo | Queda como notificación |
+| `WAKE_LOCK` | Apagar la pantalla con el sensor de proximidad | No se puede negar; es un permiso sin diálogo |
 
 Nada más: verificado en el APK de release. El manifest además bloquea `INTERNET`, `ACCESS_NETWORK_STATE`, la ubicación y `READ_PHONE_NUMBERS` aunque una librería los pidiera. El estado de servicio se lee sin ubicación.
 
 Los permisos del registro de llamadas son restringidos en Android. Al instalar un APK a mano, el sistema puede pedirte que permitas los ajustes restringidos de la app.
 
+## Usarla como app de teléfono
+
+Es opcional y lo decidís vos: la app funciona también sin eso. En **Ajustes → App de teléfono → Usar como app de teléfono** aparece el diálogo del sistema. Nada lo pide solo.
+
+Siendo la app de teléfono:
+
+- **Llamada entrante:** sobre la pantalla de bloqueo, con atender, rechazar y el chip por el que entra. Con el celu en uso, como notificación con esos mismos botones. El tono y la vibración son los del sistema: respetan tu tono, tu volumen y No molestar.
+- **Llamada en curso:** silenciar, salida de audio, retener, teclado de tonos, agregar, cambiar, combinar y colgar. Solo aparece lo que la red permite. Colgar siempre queda a la vista.
+- **Sensor de proximidad:** apaga la pantalla con el celu en la oreja; no con altavoz, Bluetooth ni auriculares.
+- **Notificaciones:** entrante, en curso y perdida, esta última con el chip.
+- **Bloqueo de números:** en Ajustes o en el detalle de una llamada. Usa la lista del propio celu, que no sale de ahí, y el sistema rechaza esas llamadas antes de que suenen. Deja de bloquear un tiempo después de una emergencia, para que puedan devolverte el llamado. Si después cambiás de app de teléfono, la lista sigue en el celu.
+- **Enlaces `tel:` de otras apps:** dejan el número escrito en el teclado. Nunca marcan solos.
+
+**Para volver al marcador anterior:** Ajustes → Aplicaciones → Elegir aplicaciones predeterminadas → Aplicación de teléfono, y elegí el que tenías. El marcador del sistema sigue instalado todo el tiempo.
+
 ## Modo de pruebas seguro
 
 Solo en debug y profile (`dev.liquidphone.debug`, "Teléfono (prueba)"). La release no contiene nada de esto (0 coincidencias en su código).
 
+- **Con la app de teléfono:** en modo seguro, un número que no es ficticio se ve como "Número oculto", también en notificaciones. Para usarla de verdad hay que apagar el modo seguro y el simulacro a mano.
 - **Modo seguro, encendido por defecto.** La app solo ve contactos con origen `liquidphone-debug-N` y las llamadas que insertó la herramienta. El filtro va dentro de cada consulta SQL: lo real ni siquiera se lee. Se apaga únicamente a mano, en Ajustes. Apagado, la ventana no se puede capturar (`FLAG_SECURE`).
 - **Simulacro de llamadas, encendido por defecto.** Llamar muestra "Se llamaría a [número] con [SIM n]" y no marca. También se apaga solo a mano. Las emergencias no pasan por el simulacro.
 - **Datos ficticios.** La herramienta crea 24 contactos y 40 llamadas, con números de rangos reservados para ficción y nombres con "(prueba)", y borra solo lo que creó, fila por fila. Si la agenda no está vacía, se niega a crear nada. Mientras existan, un aviso lo recuerda: también se ven en las apps del sistema, y **no conviene hacer llamadas reales** hasta borrarlos, porque Android borra las llamadas más viejas de cada chip a partir de 500. Por eso la herramienta se niega a pasar de 450, y las 500 entradas de la prueba de rendimiento solo existen en memoria.
@@ -91,8 +110,9 @@ En la primera prueba, con números argentinos inventados, aparecieron 2 fichas d
 
 ## Limitaciones conocidas
 
-- **No es el marcador predeterminado** ni atiende `tel:` de otras apps. Las llamadas en curso las muestra el marcador del sistema.
-- Las emergencias no se pueden elegir con chip y siempre piden tocar llamar en el marcador del sistema.
+- La app no manda mensajes al rechazar, no graba y no tiene buzón de voz visual ni videollamadas.
+- Las emergencias no se pueden elegir con chip. Sin ser la app de teléfono, piden tocar llamar en el marcador del sistema.
+- **Sin probar en un celu real:** ver "Qué se probó" en `DESIGN.md`.
 - El estado de servicio llega un momento después de abrir la app; hasta entonces no se considera que falte servicio.
 - Con llamadas por Wi-Fi, un chip puede figurar "sin servicio" y llamar igual: por eso la pregunta ofrece usarlo de todos modos.
 - Un contacto con varios números llama desde su detalle, para elegir cuál.
@@ -163,7 +183,7 @@ Solo para los tests, **no van en el APK**: kotlin-test (Apache-2.0) y JUnit 4 (E
 
 - **Árbol completo** (`./gradlew :app:dependencies --configuration releaseRuntimeClasspath`): 96 artefactos, todos Apache-2.0 según sus POM. Dos no la declaran en su POM directo y la heredan del POM padre, ambos comprobados: `libphonenumber` 9.0.42 de `libphonenumber-parent` 9.0.42 y `listenablefuture` 1.0 de `guava-parent` 26.0-android. Todos compatibles con GPL-3.0-or-later.
 - **Sin Google Play Services, Firebase ni datatransport**, y sin `HttpURLConnection` ni OkHttp: 0 coincidencias en el código del APK de release.
-- **Manifest final:** solo los 5 permisos de arriba. Exportados: únicamente los 5 alias de íconos. `tools:node="remove"` quita el permiso interno de androidx.core, `androidx.startup` y el receptor de profileinstaller.
+- **Manifest final:** solo los 8 permisos de arriba. Exportados: los 5 alias de íconos, `MainActivity` (DIAL y VIEW `tel:`, nunca CALL), el servicio de llamada (solo Telecom puede conectarse) y el receptor de perdidas, que no usa nada del intent. `tools:node="remove"` quita el permiso interno de androidx.core, `androidx.startup` y el receptor de profileinstaller.
 - **F-Droid:** `allowBackup=false`, `dependenciesInfo` apagado, sin perfiles ART en el APK. Compose trae `libandroidx.graphics.path.so` (Apache-2.0, fuente en AOSP) desde Maven; el repo no tiene binarios.
 
 <details>

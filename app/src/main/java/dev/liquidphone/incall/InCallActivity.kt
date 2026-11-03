@@ -7,15 +7,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -55,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -152,33 +158,81 @@ class InCallActivity : ComponentActivity() {
     }
 }
 
+/**
+ * Colgar y atender nunca se desplazan: están siempre a la vista, aunque el teclado de tonos o la letra
+ * grande no dejen lugar para lo demás. En horizontal, dos columnas.
+ */
 @Composable
 private fun InCallScreen(ui: InCallUi, onAdd: () -> Unit) {
     val main = ui.primary ?: return
     val insets = WindowInsets.safeDrawing.asPaddingValues()
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(top = insets.calculateTopPadding() + 24.dp, bottom = insets.calculateBottomPadding() + 16.dp, start = 20.dp, end = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        CallHeader(main)
-        ui.secondary?.let { other ->
-            GlassCard(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                val text = when {
-                    main.live.phase == CallPhase.RINGING -> str(R.string.call_waiting_with, other.title)
-                    other.live.phase == CallPhase.HOLDING -> str(R.string.call_other_held, other.title)
-                    else -> str(R.string.call_other_active, other.title)
-                }
-                Text(text, fontSize = 14.sp, color = LocalGlass.current.content, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
+    val dir = LocalLayoutDirection.current
+    var keypad by rememberSaveable { mutableStateOf(false) }
+    val body: @Composable () -> Unit = {
+        when {
+            ui.controls.answer -> Unit
+            ui.controls.selectAccount -> SelectChip(main.live.id)
+            else -> OngoingControls(ui, main.live.id, keypad, { keypad = !keypad }, onAdd)
         }
-        Spacer(Modifier.weight(1f))
+    }
+    val actions: @Composable () -> Unit = {
         when {
             ui.controls.answer -> IncomingButtons(main.live.id)
-            ui.controls.selectAccount -> SelectChip(main.live.id)
-            else -> OngoingControls(ui, main.live.id, onAdd)
+            ui.controls.hangup -> {
+                val label = str(if (ui.controls.selectAccount) R.string.cancel else R.string.call_hangup)
+                CallRoundButton(label, Icons.Rounded.CallEnd, HangupRed) { CallManager.hangup(main.live.id) }
+            }
+            // Mientras termina no se ofrece nada, y el texto de estado lo dice.
+            else -> Spacer(Modifier.height(72.dp))
         }
+    }
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .padding(
+                top = insets.calculateTopPadding() + 12.dp,
+                bottom = insets.calculateBottomPadding() + 12.dp,
+                start = insets.calculateStartPadding(dir) + 20.dp,
+                end = insets.calculateEndPadding(dir) + 20.dp,
+            ),
+    ) {
+        if (maxWidth > maxHeight) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                        CallHeader(main)
+                        OtherCall(main, ui.secondary)
+                    }
+                    Box(Modifier.padding(top = 8.dp)) { actions() }
+                }
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) { body() }
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(12.dp))
+                CallHeader(main)
+                OtherCall(main, ui.secondary)
+                Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.BottomCenter) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) { body() }
+                }
+                Box(Modifier.padding(bottom = if (ui.controls.answer) 32.dp else 0.dp)) { actions() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OtherCall(main: CallView, other: CallView?) {
+    other ?: return
+    GlassCard(Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        val text = when {
+            main.live.phase == CallPhase.RINGING -> str(R.string.call_waiting_with, other.title)
+            other.live.phase == CallPhase.HOLDING -> str(R.string.call_other_held, other.title)
+            else -> str(R.string.call_other_active, other.title)
+        }
+        Text(text, fontSize = 14.sp, color = LocalGlass.current.content, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -258,12 +312,15 @@ private fun elapsed(millis: Long): String {
 /** Botón redondo de color fijo, con su texto abajo. Nunca menos de 72 dp. */
 @Composable
 private fun CallRoundButton(label: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
+    val p = LocalGlass.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
                 .size(72.dp)
                 .clip(CircleShape)
                 .background(color)
+                // Sobre un fondo oscuro el relleno solo no llega a 3:1 con lo que lo rodea.
+                .then(if (p.dark) Modifier.border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape) else Modifier)
                 .clickable(onClickLabel = label, role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
@@ -276,7 +333,7 @@ private fun CallRoundButton(label: String, icon: ImageVector, color: Color, onCl
 
 @Composable
 private fun IncomingButtons(id: Int) {
-    Row(Modifier.fillMaxWidth().padding(bottom = 40.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         CallRoundButton(str(R.string.call_reject), Icons.Rounded.CallEnd, HangupRed) { CallManager.reject(id) }
         CallRoundButton(str(R.string.call_answer), Icons.Rounded.Call, AnswerGreen) { CallManager.answer(id) }
     }
@@ -293,17 +350,14 @@ private fun SelectChip(id: Int) {
             val primary = chip.slotIndex == settings.primarySimSlot
             ChipCallButton(chip, prominent = primary, enabled = true, modifier = Modifier.fillMaxWidth(), isPrimary = primary) { CallManager.selectAccount(id, chip) }
         }
-        Spacer(Modifier.height(8.dp))
-        CallRoundButton(str(R.string.cancel), Icons.Rounded.CallEnd, HangupRed) { CallManager.hangup(id) }
     }
 }
 
 @Composable
-private fun OngoingControls(ui: InCallUi, id: Int, onAdd: () -> Unit) {
+private fun OngoingControls(ui: InCallUi, id: Int, keypad: Boolean, onKeypad: () -> Unit, onAdd: () -> Unit) {
     val c = ui.controls
-    var keypad by rememberSaveable { mutableStateOf(false) }
     var picker by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         if (keypad && c.dtmf) DtmfPad(id)
         if (picker) RoutePicker(ui) { picker = false }
         val items = buildList<@Composable () -> Unit> {
@@ -316,7 +370,7 @@ private fun OngoingControls(ui: InCallUi, id: Int, onAdd: () -> Unit) {
                 }
             }
             if (c.dtmf) add {
-                ToggleControl(str(if (keypad) R.string.call_hide_keypad else R.string.call_keypad), Icons.Rounded.Dialpad, keypad) { keypad = !keypad }
+                ToggleControl(str(if (keypad) R.string.call_hide_keypad else R.string.call_keypad), Icons.Rounded.Dialpad, keypad, onClick = onKeypad)
             }
             if (c.hold) add {
                 val held = ui.primary?.live?.phase == CallPhase.HOLDING
@@ -332,10 +386,6 @@ private fun OngoingControls(ui: InCallUi, id: Int, onAdd: () -> Unit) {
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        Spacer(Modifier.height(16.dp))
-        if (c.hangup) CallRoundButton(str(R.string.call_hangup), Icons.Rounded.CallEnd, HangupRed) { CallManager.hangup(id) }
-        // Mientras termina no se ofrece nada, y el texto de estado lo dice.
-        if (!c.hangup) Spacer(Modifier.height(72.dp))
     }
 }
 
