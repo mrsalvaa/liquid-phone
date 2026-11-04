@@ -3,8 +3,6 @@ package dev.liquidphone.ui.screens
 
 import android.content.Intent
 import android.provider.ContactsContract
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.ui.platform.LocalContext
 import android.Manifest
@@ -146,7 +144,6 @@ fun ContactsTab(padding: PaddingValues, onSettings: () -> Unit, onAreaCode: () -
                             val intent = Intent(Intent.ACTION_INSERT).setType(ContactsContract.Contacts.CONTENT_TYPE)
                             if (!openInContacts(context, intent)) toast(str(R.string.no_contacts_app))
                         })
-                        Spacer(Modifier.width(8.dp))
                         GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings)
                     },
                 )

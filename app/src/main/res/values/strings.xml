@@ -109,9 +109,9 @@
     <string name="primary_sim_marked">Primary</string>
     <string name="primary_sim_absent">Not in the phone</string>
     <string name="sim_policy">SIM for one-tap calls</string>
-    <string name="sim_policy_hint">For recents and favorites. The two call buttons on the keypad and details always use the one you tap.</string>
+    <string name="sim_policy_hint">For recents and favorites. The keypad and the contact sheet use the SIM you pick there.</string>
     <string name="sim_policy_primary">Always the primary SIM</string>
-    <string name="sim_policy_primary_hint">The one you chose above. If it isn\'t available, the app asks.</string>
+    <string name="sim_policy_primary_hint">The one you chose in Settings. If it isn\'t available, the app asks.</string>
     <string name="sim_policy_ask">Always ask</string>
     <string name="sim_policy_ask_hint">One button per SIM, with name and color.</string>
     <string name="sim_policy_system">System default account</string>

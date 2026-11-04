@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
-import dev.liquidphone.ui.glass.TitleTopPadding
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -31,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -40,11 +43,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -76,9 +81,13 @@ import dev.liquidphone.ui.glass.GlassCard
 import dev.liquidphone.ui.glass.GlassChip
 import dev.liquidphone.ui.glass.GlassIconButton
 import dev.liquidphone.ui.glass.LocalGlass
+import dev.liquidphone.ui.glass.LocalReducedMotion
+import dev.liquidphone.ui.glass.ScreenTitle
 import dev.liquidphone.ui.glass.styled
 import dev.liquidphone.util.str
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 val KEY_NAMES = mapOf(
@@ -114,7 +123,11 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
     val onKey: (Char) -> Unit = { tap(); text = DialBuffer.type(text, it) }
     val onPlus: () -> Unit = { tap(); text = DialBuffer.plus(text) }
     val onBackspace: () -> Unit = { tap(); text = DialBuffer.backspace(text) }
-    val onClear: () -> Unit = { tap(); text = DialBuffer.clear() }
+    val onClear: () -> Unit = { text = DialBuffer.clear() }
+    val context = LocalContext.current
+    val toast = LocalToast.current
+    val canAdd = text.count(Char::isDigit) >= 3 && Repo.contactFor(text) == null
+    val onAdd: () -> Unit = { if (!addToContacts(context, text)) toast(str(R.string.no_contacts_app)) }
 
     BoxWithConstraints(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
         // En horizontal no entran las cuatro filas de teclas debajo de la lista.
@@ -122,17 +135,22 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f).fillMaxSize()) {
                     NumberDisplay(shown, text.isNotEmpty(), onBackspace, onClear, onSettings)
-                    DialResults(text, results, numbers::format, onContact, Modifier.weight(1f))
+                    // En horizontal no hay título: agregar sigue arriba de la lista.
+                    DialResults(text, results, numbers::format, onContact, onAdd.takeIf { canAdd }, Modifier.weight(1f))
                     CallButtons(text)
                 }
                 Keypad(onKey, onPlus, Modifier.width(280.dp), keyHeight = 48.dp)
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().padding(top = TitleTopPadding), horizontalArrangement = Arrangement.End) {
-                    GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings)
-                }
-                DialResults(text, results, numbers::format, onContact, Modifier.weight(1f))
+                ScreenTitle(
+                    str(R.string.tab_keypad),
+                    actions = {
+                        if (canAdd) GlassIconButton(Icons.Rounded.PersonAdd, str(R.string.add_to_contacts), onAdd)
+                        GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings)
+                    },
+                )
+                DialResults(text, results, numbers::format, onContact, null, Modifier.weight(1f))
                 NumberDisplay(shown, text.isNotEmpty(), onBackspace, onClear, null)
                 Keypad(onKey, onPlus, Modifier.fillMaxWidth(), keyHeight = 60.dp)
                 Spacer(Modifier.height(10.dp))
@@ -146,11 +164,42 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
 @Composable
 private fun NumberDisplay(shown: String, hasText: Boolean, onBackspace: () -> Unit, onClear: () -> Unit, onSettings: (() -> Unit)?) {
     val p = LocalGlass.current
+    val reduced = LocalReducedMotion.current
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    // 1: el número a la vista; 0: ya se fue hacia el botón de borrar. Si cambia lo escrito, se cancela.
+    val visibility = remember { Animatable(1f) }
+    var clearing by remember { mutableStateOf<Job?>(null) }
+    LaunchedEffect(shown) {
+        clearing?.cancel()
+        clearing = null
+        visibility.snapTo(1f)
+    }
+    val clearAll: () -> Unit = {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (reduced) {
+            onClear()
+        } else {
+            clearing = scope.launch {
+                visibility.animateTo(0f, tween(180, easing = FastOutLinearInEasing))
+                onClear()
+            }
+        }
+    }
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onSettings != null) GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings) else Spacer(Modifier.width(48.dp))
         Text(
             shown,
-            Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+            Modifier
+                .weight(1f)
+                .graphicsLayer {
+                    val gone = 1f - visibility.value
+                    alpha = visibility.value
+                    translationX = gone * 48.dp.toPx()
+                    scaleX = 1f - gone * 0.15f
+                    scaleY = 1f - gone * 0.15f
+                }
+                .semantics { liveRegion = LiveRegionMode.Polite },
             fontSize = if (shown.length > 14) 24.sp else 32.sp,
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -166,7 +215,7 @@ private fun NumberDisplay(shown: String, hasText: Boolean, onBackspace: () -> Un
                         Modifier.combinedClickable(
                             role = Role.Button,
                             onLongClickLabel = str(R.string.key_clear_all),
-                            onLongClick = onClear,
+                            onLongClick = clearAll,
                             onClick = onBackspace,
                         )
                     } else {
@@ -229,19 +278,17 @@ private fun Key(key: Char, onKey: (Char) -> Unit, onLong: (() -> Unit)?, modifie
 }
 
 @Composable
-private fun DialResults(text: String, results: List<ContactSummary>, formatNumber: (String) -> String, onContact: (Long) -> Unit, modifier: Modifier) {
-    val context = LocalContext.current
-    val toast = LocalToast.current
+private fun DialResults(text: String, results: List<ContactSummary>, formatNumber: (String) -> String, onContact: (Long) -> Unit, onAdd: (() -> Unit)?, modifier: Modifier) {
     val caller = LocalCaller.current
     LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(vertical = 4.dp)) {
         if (text.isEmpty()) {
             item("avisos") { DialNotices() }
-        } else if (text.count(Char::isDigit) >= 3 && Repo.contactFor(text) == null) {
+        } else if (onAdd != null) {
             item("agregar") {
                 GlassChip(
                     str(R.string.add_to_contacts),
                     selected = false,
-                    onClick = { if (!addToContacts(context, text)) toast(str(R.string.no_contacts_app)) },
+                    onClick = onAdd,
                     modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
                 )
             }

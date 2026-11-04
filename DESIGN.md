@@ -209,3 +209,9 @@ Antes de reutilizar un número de Australia, confirmarlo en la página de ACMA.
 - **Builds de prueba:** cada app prefiere la build `.debug` de la otra; la release solo apunta a la release.
 - **Apariencia:** cada app guarda la suya, como el resto de la suite. Con el mismo tema se ven iguales.
 - **Límite conocido:** Phone → Contacts → Llamar deja el teclado como raíz: desde ahí, volver sale de la app.
+
+## Rendimiento
+
+Para juzgar la fluidez hay que usar `installProfile`, no `installDebug`: la build de debug no está optimizada. Medido con `dumpsys gfxinfo` en un S24 FE a 120 Hz, cambiando de pestaña: debug 7 a 15 % de fotogramas tarde y mediana de 9 a 10 ms; profile 3,4 % y mediana de 7 a 8 ms. Las dos mediciones no comparan solo la build: profile ya tenía el cambio de pestaña nuevo. Compilar con `speed` no cambió el resultado.
+
+Al tocar una pestaña, la burbuja sale enseguida por su cuenta y el pager va en 220 ms. Antes la burbuja lo seguía, y el resaltado esperaba a que pasara la mitad del recorrido.

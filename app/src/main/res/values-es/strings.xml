@@ -109,9 +109,9 @@
     <string name="primary_sim_marked">Principal</string>
     <string name="primary_sim_absent">No está en el celu</string>
     <string name="sim_policy">Chip para llamar con un toque</string>
-    <string name="sim_policy_hint">Para recientes y favoritos. Los dos botones de llamar del teclado y del detalle siempre usan el que tocás.</string>
+    <string name="sim_policy_hint">Para recientes y favoritos. El teclado y la ficha de contacto usan el chip que elijas ahí.</string>
     <string name="sim_policy_primary">Siempre el chip principal</string>
-    <string name="sim_policy_primary_hint">El que elegiste arriba. Si no está disponible, pregunta.</string>
+    <string name="sim_policy_primary_hint">El que elegiste en Ajustes. Si no está disponible, pregunta.</string>
     <string name="sim_policy_ask">Preguntar siempre</string>
     <string name="sim_policy_ask_hint">Un botón por chip, con nombre y color.</string>
     <string name="sim_policy_system">Cuenta predeterminada del sistema</string>

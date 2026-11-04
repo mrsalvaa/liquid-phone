@@ -76,8 +76,8 @@ android {
         buildConfig = true
     }
 
-    // Herramientas que solo existen en debug y profile (modo seguro, simulacro y datos
-    // inventados): la release no las compila.
+    // Herramientas que solo existen en debug y profile (contactos de prueba por
+    // adb): la release no las compila.
     sourceSets["profile"].java.srcDir("src/debug/java")
     sourceSets["profile"].manifest.srcFile("src/debug/AndroidManifest.xml")
     sourceSets["profile"].res.srcDir("src/debug/res")

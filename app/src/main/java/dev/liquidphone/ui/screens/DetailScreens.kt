@@ -156,11 +156,14 @@ fun CallDetailScreen(group: CallGroup, padding: PaddingValues, onBack: () -> Uni
         BackTitle(contact?.displayName ?: shown, onBack, subtitle = shown.takeIf { contact != null })
         if (latest.callable) {
             CallButtons(group.number, Modifier.padding(vertical = 8.dp))
-            GlassButton(
-                if (original != null) str(R.string.call_back_with, simLabel(original)) else str(R.string.call_back_original),
-                { caller(group.number, CallTarget.Original(group.account)) },
-                Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            )
+            // Con un solo chip, devolver con el original es lo mismo que el botón de llamar.
+            if (sims.multiple) {
+                GlassButton(
+                    if (original != null) str(R.string.call_back_with, simLabel(original)) else str(R.string.call_back_original),
+                    { caller(group.number, CallTarget.Original(group.account)) },
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                )
+            }
             if (contact != null) {
                 GlassButton(str(R.string.open_contact), { onContact(contact.id) }, Modifier.fillMaxWidth().padding(bottom = 8.dp))
             } else {

@@ -53,7 +53,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,8 +108,20 @@ fun SimBadge(chip: SimChip?, modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         // Tamaño fijo, también con letra grande: el círculo no crece. El nombre del chip va al lado.
+        // Sin el margen de la fuente ni el del renglón: si no, el número queda corrido dentro del círculo.
         val fixed = (12f / LocalDensity.current.fontScale).sp
-        Text(chip?.slotNumber?.toString() ?: "?", fontSize = fixed, fontWeight = FontWeight.Bold, color = readableOn(color))
+        Text(
+            chip?.slotNumber?.toString() ?: "?",
+            style = TextStyle(
+                fontSize = fixed,
+                lineHeight = fixed,
+                fontWeight = FontWeight.Bold,
+                color = readableOn(color),
+                textAlign = TextAlign.Center,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+            ),
+        )
     }
 }
 
@@ -170,7 +186,7 @@ val CallGreen = Color(0xFF1B7F3B)
  * Elegir chip y llamar, en el teclado y en el detalle: dos píldoras iguales para el chip, con el
  * principal elegido al empezar, y un botón verde que es el único que llama. Es una elección explícita,
  * por encima de la política. Después de llamar vuelve al principal: la próxima no sale por otro chip
- * sin que se vea. Con un solo chip no hay qué elegir; sin poder verlos, solo el botón.
+ * sin que se vea. Con un solo chip, o sin poder verlos, no hay qué elegir: solo el botón, al centro.
  */
 @Composable
 fun CallButtons(number: String, modifier: Modifier = Modifier) {
@@ -183,27 +199,31 @@ fun CallButtons(number: String, modifier: Modifier = Modifier) {
     val chips = sims.chips
     val chip = chips.firstOrNull { it.slotIndex == picked } ?: chips.firstOrNull { it.slotIndex == primarySlot } ?: chips.firstOrNull()
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (chips.isEmpty()) Spacer(Modifier.weight(1f))
-        chips.sortedBy { it.slotIndex }.forEach { c ->
-            ChipPill(c, selected = c == chip, canPick = chips.size > 1, isPrimary = c.slotIndex == primarySlot, modifier = Modifier.weight(1f)) { picked = c.slotIndex }
+        val canPick = chips.size > 1
+        if (canPick) {
+            chips.sortedBy { it.slotIndex }.forEach { c ->
+                ChipPill(c, selected = c == chip, isPrimary = c.slotIndex == primarySlot, modifier = Modifier.weight(1f)) { picked = c.slotIndex }
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
         }
         if (chips.isEmpty()) {
             CallIconButton(null, false, enabled) { caller(number, CallTarget.UsePolicy) }
-            Spacer(Modifier.weight(1f))
         } else {
-            CallIconButton(chip, chip?.slotIndex == primarySlot, enabled) {
+            CallIconButton(chip, canPick && chip?.slotIndex == primarySlot, enabled) {
                 chip?.let { caller(number, CallTarget.Slot(it.slotIndex)) }
                 picked = primarySlot
             }
         }
+        if (!canPick) Spacer(Modifier.weight(1f))
     }
 }
 
 /** Una píldora de chip. Todas miden lo mismo; la elegida se distingue por el relleno y el tilde de TalkBack. */
 @Composable
-private fun ChipPill(chip: SimChip, selected: Boolean, canPick: Boolean, isPrimary: Boolean, modifier: Modifier, onPick: () -> Unit) {
+private fun ChipPill(chip: SimChip, selected: Boolean, isPrimary: Boolean, modifier: Modifier, onPick: () -> Unit) {
     val p = LocalGlass.current
-    val textColor = if (selected && canPick) p.onAccent else p.content
+    val textColor = if (selected) p.onAccent else p.content
     val description = listOfNotNull(
         simLabel(chip),
         str(R.string.sim_primary_mark).takeIf { isPrimary },
@@ -215,15 +235,13 @@ private fun ChipPill(chip: SimChip, selected: Boolean, canPick: Boolean, isPrima
             .heightIn(min = 64.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = description
-                if (canPick) {
-                    role = Role.RadioButton
-                    this.selected = selected
-                }
+                role = Role.RadioButton
+                this.selected = selected
             },
         shape = CircleShape,
         strong = true,
-        tint = if (selected && canPick) p.accentFill() else null,
-        onClick = if (canPick) onPick else null,
+        tint = if (selected) p.accentFill() else null,
+        onClick = onPick,
     ) {
         Row(
             Modifier.align(Alignment.Center).padding(horizontal = 12.dp, vertical = 8.dp).clearAndSetSemantics { },

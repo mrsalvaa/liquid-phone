@@ -114,46 +114,32 @@ fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boole
 
         SectionLabel(str(R.string.calls_section))
         GlassCard {
-            // Siempre las dos ranuras, por si el chip principal todavía no está puesto.
-            Text(str(R.string.primary_sim), fontSize = 16.sp)
-            Text(str(R.string.primary_sim_hint), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 4.dp))
-            CallDecider.VALID_PRIMARY_SLOTS.forEach { slot ->
-                val chip = sims.chips.firstOrNull { it.slotIndex == slot }
-                val chosen = s.primarySimSlot == slot
-                val state = listOfNotNull(
-                    str(R.string.primary_sim_marked).takeIf { chosen },
-                    str(R.string.primary_sim_absent).takeIf { chip == null && sims.known },
-                )
-                SettingRow(
-                    chip?.let(::simName) ?: str(R.string.sim_label, slot + 1),
-                    Modifier.semantics { selected = chosen },
-                    subtitle = state.joinToString(" · ").ifEmpty { null },
-                    onClick = { edit { it.copy(primarySimSlot = slot) } },
-                    leading = chip?.let { { SimBadge(it, Modifier.padding(end = 12.dp)) } },
-                    trailing = { if (chosen) Icon(styled(Icons.Rounded.Check), null, tint = p.accentFg) },
-                )
-            }
-            Spacer(Modifier.height(10.dp))
             // Con un solo chip no hay nada que elegir.
             if (sims.multiple) {
-                Text(str(R.string.sim_policy), fontSize = 16.sp)
-                Text(str(R.string.sim_policy_hint), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 4.dp))
-                val policies = listOf(
-                    SimPolicy.PRIMARY to (R.string.sim_policy_primary to R.string.sim_policy_primary_hint),
-                    SimPolicy.ASK to (R.string.sim_policy_ask to R.string.sim_policy_ask_hint),
-                    SimPolicy.SYSTEM_DEFAULT to (R.string.sim_policy_system to R.string.sim_policy_system_hint),
-                    SimPolicy.LAST_USED to (R.string.sim_policy_last to R.string.sim_policy_last_hint),
-                )
-                policies.forEach { (policy, texts) ->
-                    val chosen = s.simPolicy == policy.value
+                Text(str(R.string.primary_sim), fontSize = 16.sp)
+                Text(str(R.string.primary_sim_hint), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 4.dp))
+                CallDecider.VALID_PRIMARY_SLOTS.forEach { slot ->
+                    val chip = sims.chips.firstOrNull { it.slotIndex == slot }
+                    val chosen = s.primarySimSlot == slot
+                    val state = listOfNotNull(
+                        str(R.string.primary_sim_marked).takeIf { chosen },
+                        str(R.string.primary_sim_absent).takeIf { chip == null && sims.known },
+                    )
                     SettingRow(
-                        str(texts.first),
+                        chip?.let(::simName) ?: str(R.string.sim_label, slot + 1),
                         Modifier.semantics { selected = chosen },
-                        subtitle = str(texts.second),
-                        onClick = { edit { it.copy(simPolicy = policy.value) } },
+                        subtitle = state.joinToString(" · ").ifEmpty { null },
+                        onClick = { edit { it.copy(primarySimSlot = slot) } },
+                        leading = chip?.let { { SimBadge(it, Modifier.padding(end = 12.dp)) } },
                         trailing = { if (chosen) Icon(styled(Icons.Rounded.Check), null, tint = p.accentFg) },
                     )
                 }
+                Spacer(Modifier.height(10.dp))
+                SettingRow(
+                    str(R.string.sim_policy),
+                    subtitle = str(policyTexts(SimPolicy.fromValue(s.simPolicy)).first),
+                    onClick = { dialog(DialogSpec(str(R.string.sim_policy)) { dismiss -> SimPolicyChoice(dismiss) }) },
+                )
                 Spacer(Modifier.height(10.dp))
             }
             Text(str(R.string.start_tab), fontSize = 16.sp)
@@ -206,6 +192,34 @@ fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boole
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+private fun policyTexts(policy: SimPolicy): Pair<Int, Int> = when (policy) {
+    SimPolicy.PRIMARY -> R.string.sim_policy_primary to R.string.sim_policy_primary_hint
+    SimPolicy.ASK -> R.string.sim_policy_ask to R.string.sim_policy_ask_hint
+    SimPolicy.SYSTEM_DEFAULT -> R.string.sim_policy_system to R.string.sim_policy_system_hint
+    SimPolicy.LAST_USED -> R.string.sim_policy_last to R.string.sim_policy_last_hint
+}
+
+/** Ventana flotante del chip para llamar con un toque: elegir una opción la aplica y la cierra. */
+@Composable
+private fun SimPolicyChoice(dismiss: () -> Unit) {
+    val p = LocalGlass.current
+    val s by Stores.settings.state.collectAsStateWithLifecycle()
+    Text(str(R.string.sim_policy_hint), fontSize = 13.sp, color = p.contentSecondary, modifier = Modifier.padding(bottom = 8.dp))
+    SimPolicy.entries.forEach { policy ->
+        val chosen = s.simPolicy == policy.value
+        SettingRow(
+            str(policyTexts(policy).first),
+            Modifier.semantics { selected = chosen },
+            subtitle = str(policyTexts(policy).second),
+            onClick = {
+                Stores.settings.update { it.copy(simPolicy = policy.value) }
+                dismiss()
+            },
+            trailing = { if (chosen) Icon(styled(Icons.Rounded.Check), null, tint = p.accentFg) },
+        )
     }
 }
 
