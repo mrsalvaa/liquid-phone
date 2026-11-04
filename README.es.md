@@ -116,6 +116,30 @@ En la primera prueba, con números argentinos inventados, aparecieron 2 fichas d
 - El código de área por defecto solo existe para Argentina.
 - Los favoritos se marcan en la app de contactos: esta no escribe en la agenda. La estrella de la ficha abre ese contacto en Liquid Contacts.
 
+## Descargar
+
+Bajá el APK desde [Releases](../../releases) e instalalo. Los cambios de cada versión están en el [registro de cambios](CHANGELOG.es.md).
+
+Comprobá que el archivo no fue alterado:
+
+```bash
+sha256sum -c liquid-phone-v1.1.0.apk.sha256
+```
+
+```
+b3d63dca7ba98259ce56a4aed638f470a034f27599d2a627d496ede2ea609b06  liquid-phone-v1.1.0.apk
+```
+
+Y que está firmado con la clave del proyecto (huella SHA-256 del certificado):
+
+```bash
+apksigner verify --print-certs liquid-phone-v1.1.0.apk
+```
+
+```
+58:E9:4E:BC:07:52:A9:62:D0:CF:DB:B2:AD:2F:2F:EC:2F:9E:C1:D9:A4:0E:52:3E:2B:C4:2F:DE:60:D5:B8:05
+```
+
 ## Compilar
 
 Hace falta JDK 17 y el SDK de Android (plataforma 35).

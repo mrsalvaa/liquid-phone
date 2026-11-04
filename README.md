@@ -116,6 +116,30 @@ In the first test, with made-up Argentine numbers, 2 entries from another app sh
 - The default area code only exists for Argentina.
 - Favorites are marked in the contacts app: this one doesn't write to the address book. The star on a contact opens it in Liquid Contacts.
 
+## Download
+
+Get the APK from [Releases](../../releases) and install it. Changes in each version are in the [changelog](CHANGELOG.md).
+
+Check that the file wasn't altered:
+
+```bash
+sha256sum -c liquid-phone-v1.1.0.apk.sha256
+```
+
+```
+b3d63dca7ba98259ce56a4aed638f470a034f27599d2a627d496ede2ea609b06  liquid-phone-v1.1.0.apk
+```
+
+And that it's signed with the project key (SHA-256 fingerprint of the certificate):
+
+```bash
+apksigner verify --print-certs liquid-phone-v1.1.0.apk
+```
+
+```
+58:E9:4E:BC:07:52:A9:62:D0:CF:DB:B2:AD:2F:2F:EC:2F:9E:C1:D9:A4:0E:52:3E:2B:C4:2F:DE:60:D5:B8:05
+```
+
 ## Build
 
 Requires JDK 17 and the Android SDK (platform 35).
