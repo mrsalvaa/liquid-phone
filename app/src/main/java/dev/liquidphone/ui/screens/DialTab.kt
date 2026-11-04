@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,12 +78,14 @@ import dev.liquidphone.data.Repo
 import dev.liquidphone.data.Stores
 import dev.liquidphone.ui.components.ContactRow
 import dev.liquidphone.ui.components.NoticeCard
-import dev.liquidphone.ui.glass.GlassCard
+import dev.liquidphone.ui.glass.GlassSurface
 import dev.liquidphone.ui.glass.GlassChip
 import dev.liquidphone.ui.glass.GlassIconButton
+import dev.liquidphone.ui.glass.LocalFloating
 import dev.liquidphone.ui.glass.LocalGlass
 import dev.liquidphone.ui.glass.LocalReducedMotion
 import dev.liquidphone.ui.glass.ScreenTitle
+import dev.liquidphone.ui.glass.pillVeil
 import dev.liquidphone.ui.glass.styled
 import dev.liquidphone.util.str
 import kotlinx.coroutines.Dispatchers
@@ -153,8 +156,10 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
                 DialResults(text, results, numbers::format, onContact, null, Modifier.weight(1f))
                 NumberDisplay(shown, text.isNotEmpty(), onBackspace, onClear, null)
                 Keypad(onKey, onPlus, Modifier.fillMaxWidth(), keyHeight = 60.dp)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(16.dp))
                 CallButtons(text)
+                // Que el bloque no quede pegado a la barra de pestañas.
+                Spacer(Modifier.height(28.dp))
             }
         }
     }
@@ -233,11 +238,16 @@ private fun NumberDisplay(shown: String, hasText: Boolean, onBackspace: () -> Un
 /** Una sola superficie de cristal para las 12 teclas: las teclas son planas. */
 @Composable
 private fun Keypad(onKey: (Char) -> Unit, onPlus: () -> Unit, modifier: Modifier, keyHeight: Dp) {
-    GlassCard(modifier) {
-        for (row in listOf("123", "456", "789", "*0#")) {
-            Row(Modifier.fillMaxWidth()) {
-                for (key in row) {
-                    Key(key, onKey, if (key == '0') onPlus else null, Modifier.weight(1f), keyHeight)
+    val p = LocalGlass.current
+    CompositionLocalProvider(LocalFloating provides true) {
+        GlassSurface(modifier.fillMaxWidth(), strong = true, tint = p.pillVeil(), frost = 4.dp) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                for (row in listOf("123", "456", "789", "*0#")) {
+                    Row(Modifier.fillMaxWidth()) {
+                        for (key in row) {
+                            Key(key, onKey, if (key == '0') onPlus else null, Modifier.weight(1f), keyHeight)
+                        }
+                    }
                 }
             }
         }

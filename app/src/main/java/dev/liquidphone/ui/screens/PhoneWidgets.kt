@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.selected
@@ -72,14 +70,17 @@ import dev.liquidphone.core.sim.SimChip
 import dev.liquidphone.core.sim.SimStatus
 import dev.liquidphone.data.Repo
 import dev.liquidphone.data.Stores
+import dev.liquidphone.incall.CallCircle
 import dev.liquidphone.ui.glass.DialogSpec
 import dev.liquidphone.ui.glass.GlassButton
 import dev.liquidphone.ui.glass.GlassCard
 import dev.liquidphone.ui.glass.GlassSurface
 import dev.liquidphone.ui.glass.LocalDialog
+import dev.liquidphone.ui.glass.LocalFloating
 import dev.liquidphone.ui.glass.LocalGlass
 import dev.liquidphone.ui.glass.ScreenTitle
 import dev.liquidphone.ui.glass.accentFill
+import dev.liquidphone.ui.glass.pillVeil
 import dev.liquidphone.ui.glass.readableOn
 import dev.liquidphone.ui.glass.styled
 import dev.liquidphone.util.str
@@ -205,6 +206,8 @@ fun CallButtons(number: String, modifier: Modifier = Modifier) {
     var picked by rememberSaveable(primarySlot) { mutableStateOf(primarySlot) }
     val chips = sims.chips
     val chip = chips.firstOrNull { it.slotIndex == picked } ?: chips.firstOrNull { it.slotIndex == primarySlot } ?: chips.firstOrNull()
+    // Flotan: con fondo liso también llevan el cristal.
+    CompositionLocalProvider(LocalFloating provides true) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         val canPick = chips.size > 1
         if (canPick) {
@@ -223,6 +226,7 @@ fun CallButtons(number: String, modifier: Modifier = Modifier) {
             }
         }
         if (!canPick) Spacer(Modifier.weight(1f))
+    }
     }
 }
 
@@ -247,7 +251,8 @@ private fun ChipPill(chip: SimChip, selected: Boolean, isPrimary: Boolean, modif
             },
         shape = CircleShape,
         strong = true,
-        tint = if (selected) p.accentFill() else null,
+        tint = if (selected) p.accentFill() else p.pillVeil(),
+        frost = 4.dp,
         onClick = onPick,
     ) {
         Row(
@@ -269,7 +274,6 @@ private fun ChipPill(chip: SimChip, selected: Boolean, isPrimary: Boolean, modif
 /** El botón que llama. Sin número sigue a la vista, atenuado, para que se sepa dónde está. */
 @Composable
 private fun CallIconButton(chip: SimChip?, isPrimary: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val p = LocalGlass.current
     val description = if (chip != null) {
         str(
             R.string.call_with,
@@ -278,22 +282,19 @@ private fun CallIconButton(chip: SimChip?, isPrimary: Boolean, enabled: Boolean,
     } else {
         str(R.string.call)
     }
-    Box(
+    CallCircle(
+        Icons.Rounded.Call,
+        CallGreen,
         Modifier
-            .size(64.dp)
             .graphicsLayer { alpha = if (enabled) 1f else 0.45f }
-            .clip(CircleShape)
-            .background(CallGreen)
-            .border(2.dp, if (p.solid) CallGreenFrame else if (p.dark) Color.White.copy(alpha = 0.8f) else Color.Black.copy(alpha = 0.6f), CircleShape)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 contentDescription = description
+                role = Role.Button
                 if (!enabled) disabled()
             },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(styled(Icons.Rounded.Call), null, Modifier.size(30.dp), tint = readableOn(CallGreen))
-    }
+        size = 64.dp,
+        onClick = if (enabled) onClick else null,
+    )
 }
 
 /** Llamar desde cualquier pantalla: `caller(número, a quién le toca elegir el chip)`. */

@@ -7,6 +7,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -54,6 +59,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -64,7 +71,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -80,6 +90,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -96,11 +107,14 @@ import dev.liquidphone.ui.glass.GlassButton
 import dev.liquidphone.ui.glass.GlassCard
 import dev.liquidphone.ui.glass.GlassPalette
 import dev.liquidphone.ui.glass.GlassRoot
+import dev.liquidphone.ui.glass.GlassSurface
 import dev.liquidphone.ui.glass.GlassTheme
 import dev.liquidphone.ui.glass.LocalGlass
 import dev.liquidphone.ui.glass.LocalReducedMotion
 import dev.liquidphone.SystemBarsFor
 import dev.liquidphone.ui.glass.isDarkTheme
+import dev.liquidphone.ui.glass.pillVeil
+import dev.liquidphone.ui.glass.styled
 import dev.liquidphone.ui.screens.ChipCallButton
 import dev.liquidphone.ui.screens.KEY_NAMES
 import dev.liquidphone.ui.screens.SimBadge
@@ -131,18 +145,22 @@ class InCallActivity : ComponentActivity() {
             val ui by CallManager.ui.collectAsStateWithLifecycle()
             SystemBarsFor(isDarkTheme(settings.themeMode))
             GlassTheme(settings.glassStyle) {
+                // Por defecto oculto: se ve la foto.
+                var keypad by rememberSaveable { mutableStateOf(false) }
+                val layout = remember { OngoingLayout() }
                 GlassRoot(
                     animated = settings.animatedBackground,
                     floating = {
                         ui.primary?.let { main ->
                             IncomingSlider(ui.controls.answer, { CallManager.reject(main.live.id) }, { CallManager.answer(main.live.id) })
+                            OngoingOverlay(!ui.controls.answer, ui, main, keypad, { keypad = !keypad }, layout) {
+                                // "Agregar" siempre lleva al teclado, sea cual sea la última pantalla abierta.
+                                startActivity(Intent(this@InCallActivity, MainActivity::class.java).putExtra(MainActivity.EXTRA_DIAL, "").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
                         }
                     },
                 ) {
-                    InCallScreen(ui) {
-                        // "Agregar" siempre lleva al teclado, sea cual sea la última pantalla abierta.
-                        startActivity(Intent(this@InCallActivity, MainActivity::class.java).putExtra(MainActivity.EXTRA_DIAL, "").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    }
+                    InCallScreen(ui, keypad, layout)
                 }
             }
             // Puede abrirse un instante antes de que llegue la llamada: se espera antes de cerrar.
@@ -175,11 +193,10 @@ class InCallActivity : ComponentActivity() {
 }
 
 /**
- * Entrante o en curso. Colgar y atender nunca se desplazan: están siempre a la vista, aunque el teclado
- * de tonos o la letra grande no dejen lugar para lo demás. En horizontal, dos columnas.
+ * Entrante o en curso. Los botones van encima, en la capa flotante: ver [IncomingSlider] y [OngoingOverlay].
  */
 @Composable
-private fun InCallScreen(ui: InCallUi, onAdd: () -> Unit) {
+private fun InCallScreen(ui: InCallUi, keypad: Boolean, layout: OngoingLayout) {
     val main = ui.primary ?: return
     val reduced = LocalReducedMotion.current
     // Al atender, una pantalla se funde en la otra en vez de saltar.
@@ -195,7 +212,7 @@ private fun InCallScreen(ui: InCallUi, onAdd: () -> Unit) {
                 other = ui.secondary?.title,
             )
         } else {
-            OngoingScreen(ui, main, onAdd)
+            OngoingScreen(ui, main, keypad, layout)
         }
     }
 }
@@ -236,11 +253,7 @@ internal fun IncomingScreen(
         ChipLine(chip, chipUnknown)
     }
     val middle: @Composable (Dp) -> Unit = { photoSize ->
-        if (photoUri != null) {
-            // Dos píxeles, con el color de marco del tema.
-            val frame = with(LocalDensity.current) { 2f.toDp() }
-            ContactAvatar(title, Modifier.border(frame, photoFrame(p), CircleShape), size = photoSize, photoUri = photoUri)
-        }
+        if (photoUri != null) CallPhoto(title, photoUri, photoSize)
         other?.let {
             GlassCard(Modifier.fillMaxWidth().padding(top = 16.dp)) {
                 Text(str(R.string.call_waiting_with, it), fontSize = 14.sp, color = p.content, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -324,15 +337,92 @@ private fun photoFrame(p: GlassPalette): Color = when {
     else -> Color(0xFFC4C9D2)
 }
 
+/** Dónde terminan el encabezado y empiezan los controles: entre medio va la foto. */
+@Stable
+internal class OngoingLayout {
+    var headerBottom by mutableFloatStateOf(0f)
+    var controlsTop by mutableFloatStateOf(0f)
+    var rootHeight by mutableFloatStateOf(0f)
+}
+
+/**
+ * Llamada en curso, la parte de abajo de la pantalla: quién es y, en el medio, su foto. Los controles
+ * están en [OngoingOverlay], encima, para que el cristal del teclado de tonos deje ver la foto. En
+ * sólido el teclado es opaco: la foto directamente se oculta.
+ */
 @Composable
-private fun OngoingScreen(ui: InCallUi, main: CallView, onAdd: () -> Unit) {
+internal fun OngoingScreen(ui: InCallUi, main: CallView, keypad: Boolean, layout: OngoingLayout) {
+    val p = LocalGlass.current
     val insets = WindowInsets.safeDrawing.asPaddingValues()
     val dir = LocalLayoutDirection.current
-    var keypad by rememberSaveable { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val reduced = LocalReducedMotion.current
+    val outer = Modifier.padding(
+        top = insets.calculateTopPadding() + 12.dp,
+        start = insets.calculateStartPadding(dir) + 20.dp,
+        end = insets.calculateEndPadding(dir) + 20.dp,
+    )
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { layout.rootHeight = it.size.height.toFloat() }) {
+        if (maxWidth > maxHeight) {
+            Row(outer.fillMaxSize().padding(bottom = insets.calculateBottomPadding() + 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                // Abajo a la izquierda queda colgar, que está en la capa de encima.
+                Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = 112.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                    CallHeader(main)
+                    OtherCall(main, ui.secondary)
+                    main.photoUri?.let { CallPhoto(main.title, it, 96.dp, Modifier.padding(top = 12.dp)) }
+                }
+                Spacer(Modifier.weight(1f))
+            }
+        } else {
+            Column(
+                outer.fillMaxWidth().onGloballyPositioned { layout.headerBottom = it.positionInRoot().y + it.size.height },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(Modifier.height(12.dp))
+                CallHeader(main)
+                OtherCall(main, ui.secondary)
+            }
+            val photo = main.photoUri
+            if (photo != null && layout.controlsTop > 0f) {
+                val top = with(density) { layout.headerBottom.toDp() }
+                val bottom = with(density) { (layout.rootHeight - layout.controlsTop).coerceAtLeast(0f).toDp() }
+                BoxWithConstraints(Modifier.fillMaxSize().padding(top = top, bottom = bottom), contentAlignment = Alignment.Center) {
+                    val side = minOf(184.dp, maxHeight - 16.dp)
+                    if (side >= 64.dp) {
+                        val spec = tween<Float>(if (reduced) 0 else 200)
+                        AnimatedVisibility(!(keypad && p.solid), enter = fadeIn(spec), exit = fadeOut(spec)) {
+                            CallPhoto(main.title, photo, side)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** La foto del contacto con su marco de dos píxeles. */
+@Composable
+private fun CallPhoto(title: String, uri: String, size: Dp, modifier: Modifier = Modifier) {
+    val frame = with(LocalDensity.current) { 2f.toDp() }
+    ContactAvatar(title, modifier.border(frame, photoFrame(LocalGlass.current), CircleShape), size = size, photoUri = uri)
+}
+
+/**
+ * Los controles de la llamada en curso, en la capa flotante. Colgar nunca se desplaza: está siempre a
+ * la vista, aunque el teclado de tonos o la letra grande no dejen lugar para lo demás. En horizontal,
+ * dos columnas.
+ */
+@Composable
+internal fun BoxScope.OngoingOverlay(visible: Boolean, ui: InCallUi, main: CallView, keypad: Boolean, onKeypad: () -> Unit, layout: OngoingLayout, onAdd: () -> Unit) {
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
+    val dir = LocalLayoutDirection.current
+    val density = LocalDensity.current
+    val reduced = LocalReducedMotion.current
     val body: @Composable () -> Unit = {
-        when {
-            ui.controls.selectAccount -> SelectChip(main.live.id)
-            else -> OngoingControls(ui, main.live.id, keypad, { keypad = !keypad }, onAdd)
+        if (ui.controls.selectAccount) {
+            Box(Modifier.onGloballyPositioned { layout.controlsTop = it.positionInRoot().y }) { SelectChip(main.live.id) }
+        } else {
+            OngoingControls(ui, main.live.id, keypad, onKeypad, layout, onAdd)
         }
     }
     val actions: @Composable () -> Unit = {
@@ -345,38 +435,33 @@ private fun OngoingScreen(ui: InCallUi, main: CallView, onAdd: () -> Unit) {
             else -> Spacer(Modifier.height(72.dp))
         }
     }
-    BoxWithConstraints(
-        Modifier
-            .fillMaxSize()
-            .padding(
-                top = insets.calculateTopPadding() + 12.dp,
-                bottom = insets.calculateBottomPadding() + 12.dp,
-                start = insets.calculateStartPadding(dir) + 20.dp,
-                end = insets.calculateEndPadding(dir) + 20.dp,
-            ),
-    ) {
-        if (maxWidth > maxHeight) {
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                        CallHeader(main)
-                        OtherCall(main, ui.secondary)
+    AnimatedVisibility(visible, Modifier.matchParentSize(), enter = fadeIn(tween(if (reduced) 0 else 220)), exit = fadeOut(tween(if (reduced) 0 else 120))) {
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .padding(
+                    top = insets.calculateTopPadding() + 12.dp,
+                    bottom = insets.calculateBottomPadding() + 12.dp,
+                    start = insets.calculateStartPadding(dir) + 20.dp,
+                    end = insets.calculateEndPadding(dir) + 20.dp,
+                ),
+        ) {
+            if (maxWidth > maxHeight) {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) { actions() }
+                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) { body() }
                     }
-                    Box(Modifier.padding(top = 8.dp)) { actions() }
                 }
-                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                    Column(Modifier.verticalScroll(rememberScrollState())) { body() }
+            } else {
+                // Por debajo del encabezado: si no hay lugar, se desplazan los controles, no se le encima.
+                val clearHeader = with(density) { (layout.headerBottom - insets.calculateTopPadding().toPx() - 12.dp.toPx()).coerceAtLeast(0f).toDp() }
+                Column(Modifier.fillMaxSize().padding(top = clearHeader), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.BottomCenter) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) { body() }
+                    }
+                    actions()
                 }
-            }
-        } else {
-            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(Modifier.height(12.dp))
-                CallHeader(main)
-                OtherCall(main, ui.secondary)
-                Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.BottomCenter) {
-                    Column(Modifier.verticalScroll(rememberScrollState())) { body() }
-                }
-                actions()
             }
         }
     }
@@ -474,7 +559,7 @@ private fun elapsed(millis: Long): String {
 @Composable
 private fun CallRoundButton(label: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        CallCircle(icon, color, Modifier.semantics { contentDescription = label; role = Role.Button }, onClick)
+        CallCircle(icon, color, Modifier.semantics { contentDescription = label; role = Role.Button }, onClick = onClick)
         Text(label, Modifier.padding(top = 8.dp).clearAndSetSemantics { }, fontSize = 15.sp, color = LocalGlass.current.content)
     }
 }
@@ -494,11 +579,21 @@ private fun SelectChip(id: Int) {
 }
 
 @Composable
-private fun OngoingControls(ui: InCallUi, id: Int, keypad: Boolean, onKeypad: () -> Unit, onAdd: () -> Unit) {
+private fun OngoingControls(ui: InCallUi, id: Int, keypad: Boolean, onKeypad: () -> Unit, layout: OngoingLayout, onAdd: () -> Unit) {
     val c = ui.controls
+    val reduced = LocalReducedMotion.current
     var picker by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (keypad && c.dtmf) DtmfPad(id)
+        val motion = tween<IntSize>(if (reduced) 0 else 260, easing = FastOutSlowInEasing)
+        val fade = tween<Float>(if (reduced) 0 else 200)
+        val zoom = tween<Float>(if (reduced) 0 else 260, easing = FastOutSlowInEasing)
+        AnimatedVisibility(
+            keypad && c.dtmf,
+            enter = expandVertically(motion, expandFrom = Alignment.Bottom) + fadeIn(fade) + scaleIn(zoom, initialScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
+            exit = shrinkVertically(motion, shrinkTowards = Alignment.Bottom) + fadeOut(fade) + scaleOut(zoom, targetScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
+        ) {
+            DtmfPad(id)
+        }
         if (picker) RoutePicker(ui) { picker = false }
         val items = buildList<@Composable () -> Unit> {
             if (c.mute) add {
@@ -520,10 +615,12 @@ private fun OngoingControls(ui: InCallUi, id: Int, keypad: Boolean, onKeypad: ()
             if (c.swap) add { ToggleControl(str(R.string.call_swap), Icons.Rounded.SwapCalls, false) { CallManager.swap() } }
             if (c.merge) add { ToggleControl(str(R.string.call_merge), Icons.AutoMirrored.Rounded.CallMerge, false) { CallManager.merge(id) } }
         }
-        items.chunked(3).forEach { row ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                row.forEach { item -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { item() } }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+        Column(Modifier.fillMaxWidth().onGloballyPositioned { layout.controlsTop = it.positionInRoot().y }) {
+            items.chunked(3).forEach { row ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    row.forEach { item -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { item() } }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
     }
@@ -555,26 +652,30 @@ private fun RoutePicker(ui: InCallUi, dismiss: () -> Unit) {
     }
 }
 
-/** Un botón de la grilla. El estado (activado o no) lo anuncia TalkBack y se ve en el relleno. */
+/**
+ * Un botón de la grilla, de cristal en Liquid Glass y opaco en sólido. Al tocarlo se deforma apenas,
+ * como toda superficie de cristal. El estado (activado o no) lo anuncia TalkBack y se ve en el relleno.
+ */
 @Composable
 private fun ToggleControl(label: String, icon: ImageVector, on: Boolean, description: String = label, onClick: () -> Unit) {
     val p = LocalGlass.current
-    val fill = if (on) p.content else p.content.copy(alpha = 0.12f)
-    val tint = if (on) p.base else p.content
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
+        GlassSurface(
             Modifier
                 .size(60.dp)
-                .clip(CircleShape)
-                .background(fill)
-                .clickable(role = Role.Button, onClick = onClick)
-                .semantics {
+                .semantics(mergeDescendants = true) {
                     contentDescription = description
+                    role = Role.Button
                     if (on) stateDescription = str(R.string.call_control_on)
                 },
-            contentAlignment = Alignment.Center,
+            shape = CircleShape,
+            strong = true,
+            tint = if (on) p.content.copy(alpha = if (p.solid) 1f else 0.85f) else p.pillVeil(),
+            frost = 4.dp,
+            shadowRadius = 10.dp,
+            onClick = onClick,
         ) {
-            Icon(icon, null, Modifier.size(26.dp), tint = tint)
+            Icon(styled(icon), null, Modifier.align(Alignment.Center).size(26.dp), tint = if (on) p.base else p.content)
         }
         Text(label, Modifier.padding(top = 6.dp).clearAndSetSemantics { }, fontSize = 13.sp, color = p.content, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
@@ -585,7 +686,14 @@ private fun ToggleControl(label: String, icon: ImageVector, on: Boolean, descrip
 private fun DtmfPad(id: Int) {
     val p = LocalGlass.current
     var typed by rememberSaveable { mutableStateOf("") }
-    GlassCard(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+    // En Liquid Glass deja ver la foto de atrás, con velo y esmerilado para que los números se lean.
+    val veil = when {
+        p.solid -> null
+        p.dark -> Color(0xFF0A0C12).copy(alpha = 0.5f)
+        else -> Color.White.copy(alpha = 0.55f)
+    }
+    GlassSurface(Modifier.fillMaxWidth().padding(bottom = 8.dp), strong = true, tint = veil, frost = 10.dp) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
         Text(
             typed,
             Modifier.fillMaxWidth().heightIn(min = 32.dp).semantics { liveRegion = LiveRegionMode.Polite },
@@ -618,6 +726,7 @@ private fun DtmfPad(id: Int) {
                     }
                 }
             }
+        }
         }
     }
 }

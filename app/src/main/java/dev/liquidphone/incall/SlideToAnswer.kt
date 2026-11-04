@@ -65,6 +65,7 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -352,12 +353,12 @@ private fun SlideThumb(label: String, icon: ImageVector, color: Color, pulse: Bo
  * el color como tinte, u opaco en sólido. Flota: refracta también con fondo liso.
  */
 @Composable
-internal fun CallCircle(icon: ImageVector, color: Color, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+internal fun CallCircle(icon: ImageVector, color: Color, modifier: Modifier = Modifier, size: Dp = ThumbSize, onClick: (() -> Unit)? = null) {
     val p = LocalGlass.current
     CompositionLocalProvider(LocalFloating provides true) {
         GlassSurface(
             modifier
-                .size(ThumbSize)
+                .size(size)
                 // Solo en sólido lleva borde: en Liquid Glass lo da el brillo del propio cristal.
                 .then(if (p.solid) Modifier.border(1.dp, if (color == HangupRed) CallRedFrame else CallGreenFrame, CircleShape) else Modifier),
             shape = CircleShape,
@@ -371,7 +372,7 @@ internal fun CallCircle(icon: ImageVector, color: Color, modifier: Modifier = Mo
             shadowRadius = 12.dp,
             onClick = onClick,
         ) {
-            Icon(styled(icon), null, Modifier.align(Alignment.Center).size(32.dp), tint = readableOn(color))
+            Icon(styled(icon), null, Modifier.align(Alignment.Center).size(size * 0.44f), tint = readableOn(color))
         }
     }
 }

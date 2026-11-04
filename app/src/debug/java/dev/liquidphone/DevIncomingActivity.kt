@@ -8,11 +8,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.liquidphone.core.calls.CallPhase
+import dev.liquidphone.core.calls.InCallControls
+import dev.liquidphone.core.calls.LiveCall
 import dev.liquidphone.data.Repo
 import dev.liquidphone.data.Stores
+import dev.liquidphone.incall.CallView
+import dev.liquidphone.incall.InCallUi
 import dev.liquidphone.incall.IncomingScreen
 import dev.liquidphone.incall.IncomingSlider
+import dev.liquidphone.incall.OngoingLayout
+import dev.liquidphone.incall.OngoingOverlay
+import dev.liquidphone.incall.OngoingScreen
 import dev.liquidphone.ui.glass.GlassRoot
 import dev.liquidphone.ui.glass.GlassTheme
 import dev.liquidphone.ui.glass.isDarkTheme
@@ -25,6 +37,7 @@ import java.io.File
  * Con --ei tema (1 claro, 2 oscuro), --ei estilo (0 Liquid, 1 sólido) y --ei fondo (0 en movimiento,
  * 2 liso) se ve otro aspecto sin cambiar los ajustes guardados.
  */
+// Con --es pantalla curso se ve la llamada en curso: sus botones no actúan sobre ninguna llamada.
 class DevIncomingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -50,25 +63,41 @@ class DevIncomingActivity : ComponentActivity() {
             }
             SystemBarsFor(isDarkTheme(style.themeMode))
             GlassTheme(style) {
-                GlassRoot(
-                    animated = if (intent.hasExtra("fondo")) intent.getIntExtra("fondo", 2) == 0 else settings.animatedBackground,
-                    floating = {
-                        IncomingSlider(
-                            true,
-                            { Log.i("LiquidPhoneDev", "vista previa: rechazar") },
-                            { Log.i("LiquidPhoneDev", "vista previa: atender") },
-                        )
-                    },
-                ) {
-                    IncomingScreen(
-                        title = "Elena Müller (prueba)",
-                        subtitle = number,
-                        photoUri = photo,
-                        chip = sims.chips.lastOrNull(),
-                        chipUnknown = false,
-                        emergency = false,
-                        other = null,
+                val chip = sims.chips.lastOrNull()
+                if (intent.getStringExtra("pantalla") == "curso") {
+                    val ui = InCallUi(
+                        calls = listOf(CallView(LiveCall(1, CallPhase.ACTIVE), "Elena Müller (prueba)", number, photo, chip, false, System.currentTimeMillis())),
+                        controls = InCallControls(mute = true, route = true, hold = true, dtmf = true, add = true, hangup = true),
                     )
+                    var keypad by rememberSaveable { mutableStateOf(false) }
+                    val layout = remember { OngoingLayout() }
+                    GlassRoot(
+                        animated = style.backgroundMode == 0,
+                        floating = { OngoingOverlay(true, ui, ui.calls.first(), keypad, { keypad = !keypad }, layout) {} },
+                    ) {
+                        OngoingScreen(ui, ui.calls.first(), keypad, layout)
+                    }
+                } else {
+                    GlassRoot(
+                        animated = style.backgroundMode == 0,
+                        floating = {
+                            IncomingSlider(
+                                true,
+                                { Log.i("LiquidPhoneDev", "vista previa: rechazar") },
+                                { Log.i("LiquidPhoneDev", "vista previa: atender") },
+                            )
+                        },
+                    ) {
+                        IncomingScreen(
+                            title = "Elena Müller (prueba)",
+                            subtitle = number,
+                            photoUri = photo,
+                            chip = chip,
+                            chipUnknown = false,
+                            emergency = false,
+                            other = null,
+                        )
+                    }
                 }
             }
         }
