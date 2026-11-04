@@ -34,6 +34,8 @@ data class CallView(
     val title: String,
     /** El número, si [title] es el nombre del contacto. */
     val subtitle: String?,
+    /** La foto del contacto, si tiene. */
+    val photoUri: String?,
     val chip: SimChip?,
     /** La llamada dice de qué cuenta es y esa cuenta no está entre los chips activos. */
     val chipUnknown: Boolean,
@@ -184,6 +186,7 @@ object CallManager {
                 else -> str(R.string.number_hidden)
             },
             subtitle = number.takeIf { contact != null },
+            photoUri = contact?.photoUri,
             chip = chip,
             chipUnknown = live.account != null && chip == null && Repo.sims.state.value.known,
             connectedAt = d.connectTimeMillis,

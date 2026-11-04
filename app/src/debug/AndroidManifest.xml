@@ -9,6 +9,11 @@
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
 
     <application>
+        <!-- Vista previa de la llamada entrante, sin llamada. Protegida igual que el receptor. -->
+        <activity
+            android:name=".DevIncomingActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
         <receiver
             android:name=".DevReceiver"
             android:exported="true"

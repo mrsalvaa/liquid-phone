@@ -224,4 +224,7 @@
     <string name="no_app">There is no app to do that</string>
     <string name="favorite_add_in_contacts">Add to favorites in Contacts</string>
     <string name="favorite_remove_in_contacts">Remove from favorites in Contacts</string>
+    <string name="default_dialer_notice">Your calls open in another app. To see them here, use this one as your phone app.</string>
+    <string name="slide_answer">Slide to answer</string>
+    <string name="slide_reject">Slide to reject</string>
 </resources>

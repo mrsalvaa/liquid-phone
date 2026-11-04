@@ -182,6 +182,13 @@ fun ChipCallButton(chip: SimChip?, prominent: Boolean, enabled: Boolean, modifie
 /** Verde fijo del botón de llamar: tiene que reconocerse igual en cualquier tema. */
 val CallGreen = Color(0xFF1B7F3B)
 
+/** Borde del botón verde y del rojo en sólido, claro u oscuro: el mismo color, más oscuro. */
+val CallGreenFrame = Color(0xFF0F4F25)
+val CallRedFrame = Color(0xFF7A1717)
+
+/** Marco de la foto en sólido oscuro. */
+val SolidDarkFrame = Color(0xFF6B7078)
+
 /**
  * Elegir chip y llamar, en el teclado y en el detalle: dos píldoras iguales para el chip, con el
  * principal elegido al empezar, y un botón verde que es el único que llama. Es una elección explícita,
@@ -277,7 +284,7 @@ private fun CallIconButton(chip: SimChip?, isPrimary: Boolean, enabled: Boolean,
             .graphicsLayer { alpha = if (enabled) 1f else 0.45f }
             .clip(CircleShape)
             .background(CallGreen)
-            .border(2.dp, if (p.dark) Color.White.copy(alpha = 0.8f) else Color.Black.copy(alpha = 0.6f), CircleShape)
+            .border(2.dp, if (p.solid) CallGreenFrame else if (p.dark) Color.White.copy(alpha = 0.8f) else Color.Black.copy(alpha = 0.6f), CircleShape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 contentDescription = description

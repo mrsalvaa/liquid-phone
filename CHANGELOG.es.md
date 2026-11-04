@@ -15,4 +15,6 @@
 - Contactos de prueba, solo en debug y profile.
 - Título y botón de agregar en el teclado; el chip para llamar con un toque se elige en una ventana flotante; mantener apretado borrar limpia el número con una animación breve; con un solo chip no se ofrece elegir.
 - Cambio de pestaña más rápido al tocar la barra.
+- Llamada entrante nueva: foto del contacto, nombre más abajo y deslizar para atender o rechazar. Atender queda a la derecha.
+- Aviso en el teclado para usar esta como la app de teléfono: sin eso, las llamadas se abren en la que lo sea.
 - Ficha de contacto completa, con el diseño de Liquid Contacts. La estrella, abrir y editar llevan a Contacts.

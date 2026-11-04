@@ -114,7 +114,7 @@ object DevTools {
         return if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) "vnd.sec.contact.phone" to "vnd.sec.contact.phone" else null to null
     }
 
-    private fun photo(color: Int, name: String): ByteArray {
+    internal fun photo(color: Int, name: String): ByteArray {
         val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(color)

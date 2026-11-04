@@ -97,6 +97,9 @@ En la llamada, una emergencia solo ofrece silenciar, audio, tonos y colgar.
 - **Tono:** a cargo del sistema, sin `IN_CALL_SERVICE_RINGING`. Así respeta tono, volumen y No molestar sin código propio, y sin `VIBRATE`.
 - **Entrante:** `CallStyle` con pantalla completa. Bloqueado o con la pantalla apagada, abre la pantalla; en uso, notificación flotante. Es lo estándar de Android.
 - **Colgar y atender nunca se desplazan.** Tienen colores fijos: rojo `#C62828` y verde `#1B7F3B`.
+- **Deslizar para atender o rechazar en la pantalla de la app:** un toque no alcanza, para que no se atienda en el bolsillo. Al apoyar el dedo aparece la pista, con los valores de las píldoras flotantes de la suite y en el slot `floating`, y el otro botón se va. En sólido la pista es redonda, como el botón: no usa `GlassSurface`, que recorta las formas largas; soltar cuenta a partir del 65 % del recorrido. Si se suelta antes, todo vuelve enseguida. Con TalkBack, tocar dos veces hace la acción. Los botones de la notificación siguen siendo de un toque: es el estándar de `CallStyle`.
+- **Bordes:** en Liquid Glass los botones de llamada no tienen borde sólido: el contorno es el brillo del cristal, y en oscuro quedan por debajo de 3:1 contra el fondo (medido: 1,7 a 2,2). En sólido, verde `#0F4F25` y rojo `#7A1717`. La foto lleva un marco de 2 píxeles según el tema.
+- **Vista previa:** `DevIncomingActivity`, solo en debug y profile, muestra la entrante sin llamada, para probar diseño y gesto.
 - **Bloqueo:** `BlockedNumberContract`, no una lista propia. Telecom corta antes de sonar y el sistema suspende el bloqueo después de una emergencia; hacerlo a mano arriesgaría eso.
 - **Perdidas:** Telecom avisa al marcador. El receptor no usa nada del intent, porque es exportado y cualquiera podría mandarlo.
 

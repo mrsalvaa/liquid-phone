@@ -40,6 +40,8 @@ data class AppSettings(
     val defaultAreaCode: String = "",
     /** El aviso de "números sin código de área" se descartó y no vuelve a salir. */
     val areaCodeNoticeDismissed: Boolean = false,
+    /** El aviso del teclado para usar esta app como la de teléfono. Queda el botón en Ajustes. */
+    val dialerNoticeDismissed: Boolean = false,
 
     // --- Teléfono ---
 

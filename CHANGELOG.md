@@ -15,4 +15,6 @@
 - Test contacts, debug and profile only.
 - Title and add button on the keypad; the one-tap SIM is chosen in a floating window; holding delete clears the number with a short animation; with one SIM there is nothing to choose.
 - Faster tab change when tapping the bar.
+- New incoming call screen: contact photo, name lower down, and slide to answer or reject. Answer is on the right.
+- Keypad notice to use this as the phone app: otherwise calls open in whichever app is.
 - Full contact sheet, with the Liquid Contacts design. The star, open and edit go to Contacts.

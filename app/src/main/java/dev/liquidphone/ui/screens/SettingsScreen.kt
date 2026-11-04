@@ -224,9 +224,25 @@ private fun SimPolicyChoice(dismiss: () -> Unit) {
 }
 
 /**
- * Ser el marcador predeterminado lo decide el usuario con el diálogo del sistema: nada lo pide solo.
- * Después se piden las notificaciones, que hacen falta para la entrante y las perdidas.
+ * Pedir ser el marcador predeterminado: lo decide el usuario con el diálogo del sistema. Después se
+ * piden las notificaciones, que hacen falta para la entrante y las perdidas. Null si el celu no lo
+ * permite. [onResult] recibe si la app quedó como marcador.
  */
+@Composable
+fun rememberDialerRoleRequest(onResult: (Boolean) -> Unit = {}): (() -> Unit)? {
+    val context = LocalContext.current
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val held = Repo.isDefaultDialer()
+        onResult(held)
+        Repo.start()
+        if (held) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+    val manager = context.getSystemService(RoleManager::class.java)
+    if (manager?.isRoleAvailable(RoleManager.ROLE_DIALER) != true) return null
+    return { role.launch(manager.createRequestRoleIntent(RoleManager.ROLE_DIALER)) }
+}
+
 @Composable
 private fun DefaultDialerCard(onBlocked: () -> Unit) {
     val context = LocalContext.current
@@ -234,18 +250,12 @@ private fun DefaultDialerCard(onBlocked: () -> Unit) {
     val tick by Repo.permissionTick.collectAsStateWithLifecycle()
     var held by remember { mutableStateOf(false) }
     LaunchedEffect(tick) { held = Repo.isDefaultDialer() }
-    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val role = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        held = Repo.isDefaultDialer()
-        Repo.start()
-        if (held) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-    }
+    val requestRole = rememberDialerRoleRequest { held = it }
     GlassCard {
         Text(str(if (held) R.string.default_dialer_on else R.string.default_dialer_off), fontSize = 16.sp)
         Text(str(R.string.default_dialer_hint), fontSize = 12.sp, color = p.contentSecondary, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
-        val manager = context.getSystemService(RoleManager::class.java)
-        if (!held && manager?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
-            GlassButton(str(R.string.default_dialer_action), { role.launch(manager.createRequestRoleIntent(RoleManager.ROLE_DIALER)) }, Modifier.fillMaxWidth())
+        if (!held && requestRole != null) {
+            GlassButton(str(R.string.default_dialer_action), requestRole, Modifier.fillMaxWidth())
         } else if (held) {
             GlassButton(
                 str(R.string.default_dialer_change),

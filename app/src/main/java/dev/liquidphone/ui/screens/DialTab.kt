@@ -337,7 +337,20 @@ private fun DialNotices() {
     val chips = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { Repo.start() }
     val needContacts = remember(tick) { !Repo.granted(Manifest.permission.READ_CONTACTS) }
     val needChips = remember(tick) { !Repo.granted(Manifest.permission.READ_PHONE_STATE) }
+    // Sin el rol, las llamadas se ven en la app de teléfono que lo tenga, no en esta.
+    val settings by Stores.settings.state.collectAsStateWithLifecycle()
+    val needRole = remember(tick) { !Repo.isDefaultDialer() }
+    val requestRole = rememberDialerRoleRequest()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (needRole && requestRole != null && !settings.dialerNoticeDismissed) {
+            NoticeCard(
+                str(R.string.default_dialer_notice),
+                str(R.string.default_dialer_action),
+                requestRole,
+                str(R.string.dismiss),
+                { Stores.settings.update { it.copy(dialerNoticeDismissed = true) } },
+            )
+        }
         if (needChips && !hideChips) {
             NoticeCard(str(R.string.permission_chips_text), str(R.string.permission_continue), { chips.launch(Manifest.permission.READ_PHONE_STATE) }, str(R.string.dismiss), { hideChips = true })
         }

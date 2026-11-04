@@ -228,4 +228,7 @@
     <string name="no_app">No hay ninguna app para hacer eso</string>
     <string name="favorite_add_in_contacts">Agregar a favoritos en Contactos</string>
     <string name="favorite_remove_in_contacts">Quitar de favoritos en Contactos</string>
+    <string name="default_dialer_notice">Tus llamadas se abren en otra app. Para verlas acá, usá esta como tu app de teléfono.</string>
+    <string name="slide_answer">Deslizá para atender</string>
+    <string name="slide_reject">Deslizá para rechazar</string>
 </resources>
