@@ -6,9 +6,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M54,24a30,30 0,1 1,0,60a30,30 0,1 1,0,-60z" android:fillColor="#FFD1D1D6" />
-    <!-- Tubo de teléfono -->
-    <group android:translateX="36" android:translateY="36" android:scaleX="1.5" android:scaleY="1.5">
-        <path android:pathData="M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.57,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z" android:fillColor="#FF8E8E93" />
+    <!-- Tubo blanco sobre verde -->
+    <group android:translateX="31.2" android:translateY="31.2" android:scaleX="1.9" android:scaleY="1.9">
+        <path android:pathData="M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.57,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z" android:fillColor="#FFFFFFFF" />
     </group>
 </vector>

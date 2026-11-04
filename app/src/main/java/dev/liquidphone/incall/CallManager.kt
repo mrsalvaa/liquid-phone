@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.DisconnectCause
@@ -64,6 +65,14 @@ object CallManager {
     private var proximity: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
 
+    /** La pantalla de llamada está a la vista: la notificación de la entrante no tiene que saltar encima. */
+    var screenShown = false
+        private set
+
+    /** Hasta cuándo se espera que abra la pantalla antes de avisar con la notificación flotante. */
+    var screenExpectedUntil = 0L
+        private set
+
     private val _ui = MutableStateFlow(InCallUi())
     val ui: StateFlow<InCallUi> = _ui.asStateFlow()
 
@@ -76,6 +85,17 @@ object CallManager {
     }
 
     private fun idOf(call: Call) = System.identityHashCode(call)
+
+    /** Se abre la pantalla de una entrante. Si no aparece a tiempo, avisa la notificación flotante. */
+    fun expectScreen() {
+        screenExpectedUntil = SystemClock.uptimeMillis() + SCREEN_WAIT_MILLIS
+        handler.postDelayed({ publish() }, SCREEN_WAIT_MILLIS + 50)
+    }
+
+    fun setScreenShown(shown: Boolean) {
+        screenShown = shown
+        publish()
+    }
 
     fun attach(s: InCallService) {
         service = s
@@ -291,4 +311,5 @@ object CallManager {
     }
 
     private const val DTMF_MILLIS = 150L
+    private const val SCREEN_WAIT_MILLIS = 1500L
 }

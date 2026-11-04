@@ -231,4 +231,7 @@
     <string name="default_dialer_notice">Tus llamadas se abren en otra app. Para verlas acá, usá esta como tu app de teléfono.</string>
     <string name="slide_answer">Deslizá para atender</string>
     <string name="slide_reject">Deslizá para rechazar</string>
+    <string name="channel_incoming_quiet">Llamadas entrantes con la pantalla abierta</string>
+    <string name="filter_title">Filtrar llamadas</string>
+    <string name="filter_done">Listo</string>
 </resources>

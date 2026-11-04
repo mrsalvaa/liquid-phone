@@ -10,6 +10,7 @@ import android.app.Person
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.telecom.TelecomManager
 import dev.liquidphone.DevTools
 import dev.liquidphone.MainActivity
@@ -28,11 +29,13 @@ import kotlinx.coroutines.launch
 /** Entrante, en curso y perdida. El canal de la entrante no tiene sonido: suena el sistema. */
 object CallNotifications {
     private const val CHANNEL_INCOMING = "calls_incoming"
+    private const val CHANNEL_INCOMING_QUIET = "calls_incoming_quiet"
     private const val CHANNEL_ONGOING = "calls_ongoing"
     private const val CHANNEL_MISSED = "calls_missed"
     private const val ID_INCOMING = 1
     private const val ID_ONGOING = 2
     private const val ID_MISSED = 3
+    private const val ID_INCOMING_QUIET = 4
 
     const val ACTION_DECLINE = "dev.liquidphone.action.DECLINE"
     const val ACTION_HANGUP = "dev.liquidphone.action.HANGUP"
@@ -46,6 +49,14 @@ object CallNotifications {
         val m = manager(context) ?: return
         m.createNotificationChannel(
             NotificationChannel(CHANNEL_INCOMING, str(R.string.channel_incoming), NotificationManager.IMPORTANCE_HIGH).apply {
+                setSound(null, null)
+                enableVibration(false)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            },
+        )
+        // Con la pantalla de llamada a la vista: queda en el panel, sin saltar encima de ella.
+        m.createNotificationChannel(
+            NotificationChannel(CHANNEL_INCOMING_QUIET, str(R.string.channel_incoming_quiet), NotificationManager.IMPORTANCE_DEFAULT).apply {
                 setSound(null, null)
                 enableVibration(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -83,27 +94,41 @@ object CallNotifications {
         val ringing = main?.takeIf { it.live.phase == CallPhase.RINGING }
         if (ringing != null) {
             m.cancel(ID_ONGOING)
+            // Salta solo si la pantalla no está ni por abrir: por ejemplo, si se fue al inicio.
+            val quiet = CallManager.screenShown || SystemClock.uptimeMillis() < CallManager.screenExpectedUntil
+            m.cancel(if (quiet) ID_INCOMING else ID_INCOMING_QUIET)
             val id = ringing.live.id
             val person = Person.Builder().setName(ringing.title).setImportant(true).build()
             val chip = chipText(ringing.chip, ringing.chipUnknown)
-            m.notify(
-                ID_INCOMING,
-                Notification.Builder(context, CHANNEL_INCOMING)
-                    .setSmallIcon(R.drawable.ic_notification_call)
-                    .setCategory(Notification.CATEGORY_CALL)
-                    .setOngoing(true)
-                    .setContentIntent(screen(context, 1))
+            val builder = Notification.Builder(context, if (quiet) CHANNEL_INCOMING_QUIET else CHANNEL_INCOMING)
+                .setSmallIcon(R.drawable.ic_notification_call)
+                .setCategory(Notification.CATEGORY_CALL)
+                .setOngoing(true)
+                .setContentIntent(screen(context, 1))
+                .setOnlyAlertOnce(true)
+                // La línea de texto de la notificación: el chip por el que entra la llamada.
+                .apply { if (chip != null) setContentText(chip) }
+            if (quiet) {
+                // Android rechaza CallStyle sin pantalla completa: acá va una notificación común.
+                builder
+                    .setContentTitle(ringing.title)
+                    .addAction(Notification.Action.Builder(null, str(R.string.call_reject), action(context, ACTION_DECLINE, id)).build())
+                    .addAction(Notification.Action.Builder(null, str(R.string.call_answer), screen(context, 2, answerId = id)).build())
+            } else {
+                builder
                     .setFullScreenIntent(screen(context, 1), true)
-                    // La línea de texto de la notificación: el chip por el que entra la llamada.
-                    .apply { if (chip != null) setContentText(chip) }
-                    .setStyle(
-                        Notification.CallStyle.forIncomingCall(person, action(context, ACTION_DECLINE, id), screen(context, 2, answerId = id)),
-                    )
-                    .build(),
-            )
+                    .setStyle(Notification.CallStyle.forIncomingCall(person, action(context, ACTION_DECLINE, id), screen(context, 2, answerId = id)))
+            }
+            // Una notificación rechazada no puede cerrar la app: la llamada pasaría a la pantalla del sistema.
+            try {
+                m.notify(if (quiet) ID_INCOMING_QUIET else ID_INCOMING, builder.build())
+            } catch (e: RuntimeException) {
+                DevTools.logCall("entrante: notificación rechazada")
+            }
             return
         }
         m.cancel(ID_INCOMING)
+        m.cancel(ID_INCOMING_QUIET)
         if (main == null || main.live.phase in listOf(CallPhase.DISCONNECTED, CallPhase.DISCONNECTING)) {
             m.cancel(ID_ONGOING)
             return
@@ -128,6 +153,7 @@ object CallNotifications {
     fun cancelAll(context: Context) {
         manager(context)?.run {
             cancel(ID_INCOMING)
+            cancel(ID_INCOMING_QUIET)
             cancel(ID_ONGOING)
         }
     }

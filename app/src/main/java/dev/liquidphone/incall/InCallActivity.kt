@@ -176,6 +176,16 @@ class InCallActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        CallManager.setScreenShown(true)
+    }
+
+    override fun onStop() {
+        CallManager.setScreenShown(false)
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -365,11 +375,11 @@ internal fun OngoingScreen(ui: InCallUi, main: CallView, keypad: Boolean, layout
     BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { layout.rootHeight = it.size.height.toFloat() }) {
         if (maxWidth > maxHeight) {
             Row(outer.fillMaxSize().padding(bottom = insets.calculateBottomPadding() + 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                // Abajo a la izquierda queda colgar, que está en la capa de encima.
-                Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = 112.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     CallHeader(main)
                     OtherCall(main, ui.secondary)
-                    main.photoUri?.let { CallPhoto(main.title, it, 96.dp, Modifier.padding(top = 12.dp)) }
+                    // Con el teclado abierto en sólido, este lo tapa entero: la foto se oculta igual que en vertical.
+                    if (!(keypad && p.solid)) main.photoUri?.let { CallPhoto(main.title, it, 96.dp, Modifier.padding(top = 12.dp)) }
                 }
                 Spacer(Modifier.weight(1f))
             }
@@ -447,10 +457,25 @@ internal fun BoxScope.OngoingOverlay(visible: Boolean, ui: InCallUi, main: CallV
                 ),
         ) {
             if (maxWidth > maxHeight) {
-                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) { actions() }
-                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-                        Column(Modifier.verticalScroll(rememberScrollState())) { body() }
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // El teclado de tonos va sobre la columna de la foto: a la derecha no entraría sin tapar colgar.
+                    // Compacto y abajo, para que arriba se siga viendo quién es.
+                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                        Column(Modifier.verticalScroll(rememberScrollState())) { DtmfArea(keypad && ui.controls.dtmf, main.live.id, keyHeight = 42.dp) }
+                    }
+                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                        if (ui.controls.selectAccount) {
+                            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { SelectChip(main.live.id) }
+                            Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) { actions() }
+                        } else {
+                            // Colgar va en la última fila, al lado de lo último: esa fila nunca se desplaza.
+                            val items = controlItems(ui, main.live.id, keypad, onKeypad, onAdd)
+                            val rows = (items + listOfNotNull<@Composable () -> Unit>(hangupCell(ui, main.live.id))).chunked(3)
+                            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                                rows.dropLast(1).forEach { ControlRow(it) }
+                            }
+                            rows.lastOrNull()?.let { ControlRow(it) }
+                        }
                     }
                 }
             } else {
@@ -581,47 +606,75 @@ private fun SelectChip(id: Int) {
 @Composable
 private fun OngoingControls(ui: InCallUi, id: Int, keypad: Boolean, onKeypad: () -> Unit, layout: OngoingLayout, onAdd: () -> Unit) {
     val c = ui.controls
-    val reduced = LocalReducedMotion.current
-    var picker by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        val motion = tween<IntSize>(if (reduced) 0 else 260, easing = FastOutSlowInEasing)
-        val fade = tween<Float>(if (reduced) 0 else 200)
-        val zoom = tween<Float>(if (reduced) 0 else 260, easing = FastOutSlowInEasing)
-        AnimatedVisibility(
-            keypad && c.dtmf,
-            enter = expandVertically(motion, expandFrom = Alignment.Bottom) + fadeIn(fade) + scaleIn(zoom, initialScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
-            exit = shrinkVertically(motion, shrinkTowards = Alignment.Bottom) + fadeOut(fade) + scaleOut(zoom, targetScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
-        ) {
-            DtmfPad(id)
-        }
-        if (picker) RoutePicker(ui) { picker = false }
-        val items = buildList<@Composable () -> Unit> {
-            if (c.mute) add {
-                ToggleControl(str(if (ui.muted) R.string.call_unmute else R.string.call_mute), if (ui.muted) Icons.Rounded.MicOff else Icons.Rounded.Mic, ui.muted) { CallManager.setMuted(!ui.muted) }
-            }
-            if (c.route && InCallRules.routeCanChange(ui.routes)) add {
-                ToggleControl(routeLabel(ui.route), routeIcon(ui.route), ui.route == AudioRoute.SPEAKER, description = str(R.string.call_route_now, routeLabel(ui.route))) {
-                    if (InCallRules.routeNeedsPicker(ui.routes)) picker = !picker else CallManager.setRoute(InCallRules.toggledRoute(ui.route, ui.routes))
-                }
-            }
-            if (c.dtmf) add {
-                ToggleControl(str(if (keypad) R.string.call_hide_keypad else R.string.call_keypad), Icons.Rounded.Dialpad, keypad, onClick = onKeypad)
-            }
-            if (c.hold) add {
-                val held = ui.primary?.live?.phase == CallPhase.HOLDING
-                ToggleControl(str(if (held) R.string.call_unhold else R.string.call_hold), if (held) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, held) { CallManager.toggleHold(id) }
-            }
-            if (c.add) add { ToggleControl(str(R.string.call_add), Icons.Rounded.Add, false, onClick = onAdd) }
-            if (c.swap) add { ToggleControl(str(R.string.call_swap), Icons.Rounded.SwapCalls, false) { CallManager.swap() } }
-            if (c.merge) add { ToggleControl(str(R.string.call_merge), Icons.AutoMirrored.Rounded.CallMerge, false) { CallManager.merge(id) } }
-        }
+        DtmfArea(keypad && c.dtmf, id)
+        val items = controlItems(ui, id, keypad, onKeypad, onAdd)
         Column(Modifier.fillMaxWidth().onGloballyPositioned { layout.controlsTop = it.positionInRoot().y }) {
-            items.chunked(3).forEach { row ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    row.forEach { item -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { item() } }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
+            items.chunked(3).forEach { ControlRow(it) }
+        }
+    }
+}
+
+/** El teclado de tonos, que entra y sale creciendo desde abajo. */
+@Composable
+private fun DtmfArea(visible: Boolean, id: Int, keyHeight: Dp = 52.dp) {
+    val reduced = LocalReducedMotion.current
+    val motion = tween<IntSize>(if (reduced) 0 else 260, easing = FastOutSlowInEasing)
+    val fade = tween<Float>(if (reduced) 0 else 200)
+    val zoom = tween<Float>(if (reduced) 0 else 260, easing = FastOutSlowInEasing)
+    AnimatedVisibility(
+        visible,
+        enter = expandVertically(motion, expandFrom = Alignment.Bottom) + fadeIn(fade) + scaleIn(zoom, initialScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
+        exit = shrinkVertically(motion, shrinkTowards = Alignment.Bottom) + fadeOut(fade) + scaleOut(zoom, targetScale = 0.94f, transformOrigin = TransformOrigin(0.5f, 1f)),
+    ) {
+        DtmfPad(id, keyHeight)
+    }
+}
+
+@Composable
+private fun ControlRow(row: List<@Composable () -> Unit>) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        row.forEach { item -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { item() } }
+        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+    }
+}
+
+/** Los botones de la grilla que corresponden a esta llamada. */
+@Composable
+private fun controlItems(ui: InCallUi, id: Int, keypad: Boolean, onKeypad: () -> Unit, onAdd: () -> Unit): List<@Composable () -> Unit> {
+    val c = ui.controls
+    var picker by remember { mutableStateOf(false) }
+    if (picker) RoutePicker(ui) { picker = false }
+    return buildList {
+        if (c.mute) add {
+            ToggleControl(str(if (ui.muted) R.string.call_unmute else R.string.call_mute), if (ui.muted) Icons.Rounded.MicOff else Icons.Rounded.Mic, ui.muted) { CallManager.setMuted(!ui.muted) }
+        }
+        if (c.route && InCallRules.routeCanChange(ui.routes)) add {
+            ToggleControl(routeLabel(ui.route), routeIcon(ui.route), ui.route == AudioRoute.SPEAKER, description = str(R.string.call_route_now, routeLabel(ui.route))) {
+                if (InCallRules.routeNeedsPicker(ui.routes)) picker = !picker else CallManager.setRoute(InCallRules.toggledRoute(ui.route, ui.routes))
             }
+        }
+        if (c.dtmf) add {
+            ToggleControl(str(if (keypad) R.string.call_hide_keypad else R.string.call_keypad), Icons.Rounded.Dialpad, keypad, onClick = onKeypad)
+        }
+        if (c.hold) add {
+            val held = ui.primary?.live?.phase == CallPhase.HOLDING
+            ToggleControl(str(if (held) R.string.call_unhold else R.string.call_hold), if (held) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, held) { CallManager.toggleHold(id) }
+        }
+        if (c.add) add { ToggleControl(str(R.string.call_add), Icons.Rounded.Add, false, onClick = onAdd) }
+        if (c.swap) add { ToggleControl(str(R.string.call_swap), Icons.Rounded.SwapCalls, false) { CallManager.swap() } }
+        if (c.merge) add { ToggleControl(str(R.string.call_merge), Icons.AutoMirrored.Rounded.CallMerge, false) { CallManager.merge(id) } }
+    }
+}
+
+/** Colgar como una celda más de la grilla, del mismo tamaño que las demás. Null mientras termina. */
+private fun hangupCell(ui: InCallUi, id: Int): (@Composable () -> Unit)? {
+    if (!ui.controls.hangup) return null
+    return {
+        val label = str(R.string.call_hangup)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CallCircle(Icons.Rounded.CallEnd, HangupRed, Modifier.semantics { contentDescription = label; role = Role.Button }, size = 60.dp) { CallManager.hangup(id) }
+            Text(label, Modifier.padding(top = 6.dp).clearAndSetSemantics { }, fontSize = 13.sp, color = LocalGlass.current.content, maxLines = 1)
         }
     }
 }
@@ -683,7 +736,7 @@ private fun ToggleControl(label: String, icon: ImageVector, on: Boolean, descrip
 
 /** Tonos durante la llamada. No escribe en ningún lado que quede guardado. */
 @Composable
-private fun DtmfPad(id: Int) {
+private fun DtmfPad(id: Int, keyHeight: Dp) {
     val p = LocalGlass.current
     var typed by rememberSaveable { mutableStateOf("") }
     // En Liquid Glass deja ver la foto de atrás, con velo y esmerilado para que los números se lean.
@@ -710,7 +763,7 @@ private fun DtmfPad(id: Int) {
                     Box(
                         Modifier
                             .weight(1f)
-                            .height(52.dp)
+                            .height(keyHeight)
                             .clip(CircleShape)
                             .clickable(role = Role.Button) {
                                 typed += key

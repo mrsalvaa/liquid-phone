@@ -4,6 +4,16 @@
 
 [English](CHANGELOG.md) | **Español**
 
+## Sin publicar
+
+### Cambios
+- Íconos Samsung e iPhone nuevos. Se saca el ícono Motorola: quien lo tenía pasa a Liquid.
+- Recientes: los filtros van en una ventana flotante, con un botón al lado de Ajustes.
+- Llamada en horizontal: colgar va al lado de los demás botones y la foto ya no queda cortada.
+
+### Arreglado
+- La llamada entrante abre su pantalla también con el celu bloqueado, apagado o en uso. Antes, en apps instaladas fuera de una tienda, solo aparecía la notificación.
+
 ## 1.1.0
 
 ### Agregado

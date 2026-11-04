@@ -4,6 +4,7 @@ package dev.liquidphone
 import android.app.Application
 import dev.liquidphone.data.Repo
 import dev.liquidphone.data.Stores
+import dev.liquidphone.util.AppIcons
 import dev.liquidphone.util.Strings
 
 class PhoneApp : Application() {
@@ -11,6 +12,7 @@ class PhoneApp : Application() {
         super.onCreate()
         Strings.app = this
         Stores.init(this)
+        if (AppIcons.migrate(this, Stores.settings.state.value.appIcon)) Stores.settings.update { it.copy(appIcon = 0) }
         Repo.init(this)
     }
 }

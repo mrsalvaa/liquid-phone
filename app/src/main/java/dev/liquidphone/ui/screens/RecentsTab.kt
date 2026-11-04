@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import dev.liquidphone.ui.glass.SettingRow
+import dev.liquidphone.ui.glass.LocalDialog
+import dev.liquidphone.ui.glass.GlassButton
+import dev.liquidphone.ui.glass.DialogSpec
+import dev.liquidphone.ui.components.SwitchRow
+import androidx.compose.ui.semantics.selected
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Check
 import android.Manifest
 import android.text.format.DateFormat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +27,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -67,7 +73,6 @@ import dev.liquidphone.core.sim.SimChip
 import dev.liquidphone.data.Repo
 import dev.liquidphone.ui.components.ContactAvatar
 import dev.liquidphone.ui.components.dangerText
-import dev.liquidphone.ui.glass.GlassChip
 import dev.liquidphone.ui.glass.GlassIconButton
 import dev.liquidphone.ui.glass.LocalGlass
 import dev.liquidphone.ui.glass.ScreenTitle
@@ -116,6 +121,7 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
     var chipFilter by rememberSaveable { mutableIntStateOf(FILTER_ALL) }
     var missedOnly by rememberSaveable { mutableStateOf(false) }
     val caller = LocalCaller.current
+    val dialog = LocalDialog.current
 
     val present = remember(sims) { sims.chips.mapNotNull { it.account }.toSet() }
     val hasGone = remember(rows, present) { rows.any { it.account == null || it.account !in present } }
@@ -135,21 +141,40 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
     }
 
     Column(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+        // Lo que se está filtrando queda escrito: si no, parecería que faltan llamadas.
+        val active = listOfNotNull(
+            str(R.string.filter_missed).takeIf { missedOnly },
+            selectedChip?.let(::simLabel),
+            str(R.string.filter_other_sim).takeIf { chipFilter == FILTER_GONE },
+        ).joinToString(" · ").ifEmpty { null }
         Box(Modifier.padding(horizontal = 16.dp)) {
-            ScreenTitle(str(R.string.tab_recents), actions = { GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings) })
-        }
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            GlassChip(str(R.string.filter_missed), missedOnly, { missedOnly = !missedOnly })
-            if (sims.multiple || hasGone) {
-                GlassChip(str(R.string.filter_all_sims), chipFilter == FILTER_ALL, { chipFilter = FILTER_ALL })
-                sims.chips.forEach { chip ->
-                    GlassChip(simLabel(chip), chipFilter == chip.slotIndex, { chipFilter = chip.slotIndex })
-                }
-                if (hasGone) GlassChip(str(R.string.filter_other_sim), chipFilter == FILTER_GONE, { chipFilter = FILTER_GONE })
-            }
+            ScreenTitle(
+                str(R.string.tab_recents),
+                subtitle = active,
+                actions = {
+                    GlassIconButton(
+                        Icons.Rounded.FilterList,
+                        str(R.string.filter_title),
+                        {
+                            dialog(
+                                DialogSpec(str(R.string.filter_title)) { dismiss ->
+                                    SwitchRow(str(R.string.filter_missed), missedOnly, { missedOnly = it })
+                                    if (sims.multiple || hasGone) {
+                                        SettingRowChoice(str(R.string.filter_all_sims), null, chipFilter == FILTER_ALL) { chipFilter = FILTER_ALL }
+                                        sims.chips.forEach { chip ->
+                                            SettingRowChoice(simName(chip), chip, chipFilter == chip.slotIndex) { chipFilter = chip.slotIndex }
+                                        }
+                                        if (hasGone) SettingRowChoice(str(R.string.filter_other_sim), null, chipFilter == FILTER_GONE) { chipFilter = FILTER_GONE }
+                                    }
+                                    GlassButton(str(R.string.filter_done), dismiss, Modifier.fillMaxWidth().padding(top = 8.dp), prominent = true)
+                                },
+                            )
+                        },
+                        prominent = active != null,
+                    )
+                    GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings)
+                },
+            )
         }
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp),
@@ -170,6 +195,19 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
             }
         }
     }
+}
+
+/** Una opción de la ventana de filtros. */
+@Composable
+private fun SettingRowChoice(title: String, chip: SimChip?, chosen: Boolean, onClick: () -> Unit) {
+    val p = LocalGlass.current
+    SettingRow(
+        title,
+        Modifier.semantics { selected = chosen },
+        onClick = onClick,
+        leading = chip?.let { { SimBadge(it, Modifier.padding(end = 12.dp)) } },
+        trailing = { if (chosen) Icon(styled(Icons.Rounded.Check), null, tint = p.accentFg) },
+    )
 }
 
 fun shownNumber(row: CallRow, format: (String) -> String): String = when {

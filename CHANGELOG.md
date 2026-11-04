@@ -4,6 +4,16 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
+## Unreleased
+
+### Changed
+- New Samsung and iPhone icons. The Motorola icon is removed: anyone using it moves to Liquid.
+- Recents: filters are in a floating window, with a button next to Settings.
+- Landscape call: hang up sits next to the other buttons and the photo is no longer cut off.
+
+### Fixed
+- The incoming call opens its screen also when the phone is locked, off or in use. Before, on apps installed outside a store, only the notification appeared.
+
 ## 1.1.0
 
 ### Added

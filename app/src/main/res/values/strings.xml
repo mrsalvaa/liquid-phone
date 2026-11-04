@@ -227,4 +227,7 @@
     <string name="default_dialer_notice">Your calls open in another app. To see them here, use this one as your phone app.</string>
     <string name="slide_answer">Slide to answer</string>
     <string name="slide_reject">Slide to reject</string>
+    <string name="channel_incoming_quiet">Incoming calls with the screen open</string>
+    <string name="filter_title">Filter calls</string>
+    <string name="filter_done">Done</string>
 </resources>

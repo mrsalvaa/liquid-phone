@@ -26,12 +26,12 @@ class PhoneInCallService : InCallService() {
     }
 
     override fun onCallAdded(call: Call) {
+        // La pantalla se abre directo, también con el celu bloqueado o en uso. No alcanza con la
+        // notificación de pantalla completa: Android 14 le niega ese permiso a las apps instaladas
+        // fuera de una tienda. A este servicio, al que se conecta el sistema, sí le permite abrirla.
+        if (call.details.state == Call.STATE_RINGING) CallManager.expectScreen()
         CallManager.onAdded(call)
-        // Una entrante se anuncia por la notificación de pantalla completa. Sin permiso de
-        // notificaciones no aparecería nada: ahí se abre directo.
-        if (call.details.state != Call.STATE_RINGING || !CallNotifications.enabled(this)) {
-            startActivity(Intent(this, InCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
+        startActivity(Intent(this, InCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
     override fun onCallRemoved(call: Call) = CallManager.onRemoved(call)
