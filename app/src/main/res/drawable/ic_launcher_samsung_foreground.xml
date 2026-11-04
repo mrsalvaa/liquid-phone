@@ -6,10 +6,9 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Tubo con la señal saliendo: el color de acento y el gris de la familia -->
-    <group android:translateX="26" android:translateY="35" android:scaleX="1.85" android:scaleY="1.85">
-        <path android:pathData="M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.57,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z" android:fillColor="#FFF43F5E" />
+    <!-- Como en Calendar y Calc: el dibujo en gris pizarra y un solo detalle de color -->
+    <group android:translateX="28.5" android:translateY="28.5" android:scaleX="2.1" android:scaleY="2.1">
+        <path android:pathData="M6.62,10.79c1.44,2.83 3.76,5.14 6.59,6.59l2.2,-2.2c0.27,-0.27 0.67,-0.36 1.02,-0.24 1.12,0.37 2.33,0.57 3.57,0.57 0.55,0 1,0.45 1,1V20c0,0.55 -0.45,1 -1,1 -9.39,0 -17,-7.61 -17,-17 0,-0.55 0.45,-1 1,-1h3.5c0.55,0 1,0.45 1,1 0,1.25 0.2,2.45 0.57,3.57 0.11,0.35 0.03,0.74 -0.25,1.02l-2.2,2.2z" android:fillColor="#FF3A3F4B" />
     </group>
-    <path android:pathData="M57,40a13,13 0,0 1,13,13" android:strokeColor="#FF3A3F4B" android:strokeWidth="4" android:strokeLineCap="round" />
-    <path android:pathData="M57,29.5a23.5,23.5 0,0 1,23.5,23.5" android:strokeColor="#FF3A3F4B" android:strokeWidth="4" android:strokeLineCap="round" />
+    <path android:pathData="M71,29.5a6.5,6.5 0,1 1,0,13a6.5,6.5 0,1 1,0,-13z" android:fillColor="#FFF43F5E" />
 </vector>
