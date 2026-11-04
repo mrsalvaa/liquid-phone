@@ -5,7 +5,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.telephony.TelephonyManager
-import dev.liquidphone.DevTools
 import dev.liquidphone.calls.Dialer
 import dev.liquidphone.calls.SystemBlocked
 import dev.liquidphone.incall.CallManager
@@ -105,8 +104,8 @@ object Repo {
 
     fun init(context: Context) {
         app = context.applicationContext
-        contacts = SystemContacts(app) { DevTools.allowedContacts(app) }
-        callLog = SystemCallLog(app) { DevTools.allowedCalls(app) }
+        contacts = SystemContacts(app)
+        callLog = SystemCallLog(app)
         sims = SystemSims(app)
         dialer = Dialer(sims)
         blocked = SystemBlocked(app)
@@ -118,8 +117,6 @@ object Repo {
                 _numbers.value = PhoneNumbers(country.ifEmpty { "AR" }, area.ifEmpty { null })
             }
         }
-        // Lo que muestra el modo seguro de debug cambia sin que cambie el proveedor.
-        scope.launch { DevTools.changes().collect { reloadAll() } }
     }
 
     fun isDefaultDialer(): Boolean = dialer.isDefaultDialer(app)
@@ -141,13 +138,8 @@ object Repo {
         }
     }
 
-    private fun reloadAll() {
-        if (contactsJob != null) scope.launch(Dispatchers.IO) { loadBook(numbers.value) }
-        if (callsJob != null) scope.launch(Dispatchers.IO) { loadCalls() }
-    }
-
     private fun loadBook(numbers: PhoneNumbers) {
-        val rows = DevTools.memoryContacts() ?: contacts.summaries().sortedWith(compareBy(SpanishOrder()) { it.displayName })
+        val rows = contacts.summaries().sortedWith(compareBy(SpanishOrder()) { it.displayName })
         _book.value = Book(
             rows = rows,
             matcher = PhoneMatcher(numbers, rows) { it.phones },
@@ -156,15 +148,11 @@ object Repo {
     }
 
     private fun loadCalls() {
-        _calls.value = DevTools.memoryCalls() ?: callLog.rows()
+        _calls.value = callLog.rows()
     }
 
     /** Borra entradas de recientes. Devuelve cuántas borró. */
-    fun deleteCalls(ids: Collection<Long>): Int {
-        val deleted = callLog.delete(ids)
-        DevTools.forgetCalls(ids)
-        return deleted
-    }
+    fun deleteCalls(ids: Collection<Long>): Int = callLog.delete(ids)
 
     /** El contacto de un número, si es uno solo. Con varios candidatos no se elige ninguno. */
     fun contactFor(number: String): ContactSummary? =

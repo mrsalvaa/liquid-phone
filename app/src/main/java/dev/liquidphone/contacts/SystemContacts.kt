@@ -29,21 +29,11 @@ import kotlinx.coroutines.flow.conflate
 
 /**
  * Lectura de la agenda del sistema (ContactsContract). Es la parte de lectura de
- * contacts/SystemContacts.kt de Liquid Contacts, sin cambios, más un filtro en cada consulta. Esta
- * app no escribe en la agenda.
- *
- * [allowedContacts] devuelve los ids de contacto que se pueden leer, o null si no hay filtro. Va
- * dentro del SQL: con el modo seguro de debug, las filas reales ni siquiera llegan a la app.
+ * contacts/SystemContacts.kt de Liquid Contacts, sin cambios. Esta app no escribe en la agenda.
  * Todas las funciones hacen E/S: llamarlas fuera del hilo principal.
  */
-class SystemContacts(private val app: android.content.Context, private val allowedContacts: () -> Set<Long>?) {
+class SystemContacts(app: android.content.Context) {
     private val resolver: ContentResolver = app.contentResolver
-
-    private fun scoped(column: String, selection: String?): String? {
-        val allowed = allowedContacts() ?: return selection
-        val filter = "$column IN (${allowed.ifEmpty { setOf(-1L) }.joinToString(",")})"
-        return if (selection == null) filter else "($selection) AND $filter"
-    }
 
     // ---------------------------------------------------------------- lectura
 
@@ -54,7 +44,7 @@ class SystemContacts(private val app: android.content.Context, private val allow
         resolver.query(
             Data.CONTENT_URI,
             arrayOf(Data.CONTACT_ID, Data.MIMETYPE, Data.DATA1),
-            scoped(Data.CONTACT_ID, "${Data.MIMETYPE} IN (?, ?)"),
+            "${Data.MIMETYPE} IN (?, ?)",
             arrayOf(CommonDataKinds.Phone.CONTENT_ITEM_TYPE, CommonDataKinds.Email.CONTENT_ITEM_TYPE),
             null,
         )?.use { c ->
@@ -68,7 +58,7 @@ class SystemContacts(private val app: android.content.Context, private val allow
         resolver.query(
             Contacts.CONTENT_URI,
             arrayOf(Contacts._ID, Contacts.LOOKUP_KEY, Contacts.DISPLAY_NAME_PRIMARY, Contacts.STARRED, Contacts.PHOTO_URI),
-            scoped(Contacts._ID, null),
+            null,
             null,
             null,
         )?.use { c ->
@@ -89,18 +79,15 @@ class SystemContacts(private val app: android.content.Context, private val allow
     }
 
     /** La URI estable de un contacto, para abrirlo en la app de contactos. */
-    fun lookupUri(contactId: Long): Uri? {
-        val allowed = allowedContacts()
-        if (allowed != null && contactId !in allowed) return null
-        return Contacts.getLookupUri(resolver, ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId))
-    }
+    fun lookupUri(contactId: Long): Uri? =
+        Contacts.getLookupUri(resolver, ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId))
 
     /** El contacto entero tal como se ve (todas sus fichas juntas, sin repetir). */
     fun load(contactId: Long): Contact? {
         val header = resolver.query(
             ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId),
             arrayOf(Contacts.LOOKUP_KEY, Contacts.DISPLAY_NAME_PRIMARY, Contacts.STARRED),
-            scoped(Contacts._ID, null),
+            null,
             null,
             null,
         )?.use { c -> if (c.moveToFirst()) Triple(c.getString(0), c.getString(1).orEmpty(), c.getInt(2) != 0) else null } ?: return null
@@ -120,7 +107,7 @@ class SystemContacts(private val app: android.content.Context, private val allow
         resolver.query(
             RawContacts.CONTENT_URI,
             arrayOf(RawContacts._ID),
-            scoped(RawContacts.CONTACT_ID, "${RawContacts.CONTACT_ID} = ? AND ${RawContacts.DELETED} = 0"),
+            "${RawContacts.CONTACT_ID} = ? AND ${RawContacts.DELETED} = 0",
             arrayOf(contactId.toString()),
             RawContacts._ID,
         )?.use { c ->
@@ -142,7 +129,7 @@ class SystemContacts(private val app: android.content.Context, private val allow
         resolver.query(
             Data.CONTENT_URI,
             DATA_PROJECTION,
-            scoped(Data.CONTACT_ID, "${Data.RAW_CONTACT_ID} = ?"),
+            "${Data.RAW_CONTACT_ID} = ?",
             arrayOf(rawId.toString()),
             "${Data.IS_PRIMARY} DESC, ${Data._ID}",
         )?.use { c ->

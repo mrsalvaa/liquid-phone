@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!--
-    Solo debug y profile. WRITE_CONTACTS es para crear y borrar los contactos ficticios: la app en sí
+    Solo debug y profile. WRITE_CONTACTS es para crear y borrar los contactos de prueba: la app en sí
     nunca escribe en la agenda. El receptor atiende a la herramienta de pruebas desde adb; está
     protegido con DUMP, que tiene el shell de adb y ninguna app instalada por el usuario.
 -->
@@ -17,9 +17,6 @@
                 <action android:name="dev.liquidphone.DEV_STATUS" />
                 <action android:name="dev.liquidphone.DEV_GENERATE" />
                 <action android:name="dev.liquidphone.DEV_CLEAR" />
-                <action android:name="dev.liquidphone.DEV_MEMORY" />
-                <action android:name="dev.liquidphone.DEV_ACCOUNT_CHECK" />
-                <action android:name="dev.liquidphone.DEV_CONTACT_CHECK" />
                 <action android:name="dev.liquidphone.DEV_STYLE" />
             </intent-filter>
         </receiver>

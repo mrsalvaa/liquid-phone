@@ -142,7 +142,7 @@ object CallNotifications {
             return
         }
         val latest = summary.latest
-        val raw = latest.number.takeIf { latest.callable }?.let { DevTools.maskNumber(it) }
+        val raw = latest.number.takeIf { latest.callable }
         val who = raw?.let { Repo.contactFor(it)?.displayName ?: Repo.numbers.value.format(it) } ?: str(R.string.number_hidden)
         val chips = Repo.sims.state.value.chips
         val chip = latest.account?.let { key -> chips.firstOrNull { it.account == key } }

@@ -9,21 +9,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
-import dev.liquidphone.DevTools
 import dev.liquidphone.core.calls.SystemRoute
 import dev.liquidphone.core.calls.SystemRoutes
 import dev.liquidphone.core.sim.CallDecision
 import dev.liquidphone.core.sim.DialerReason
-import dev.liquidphone.core.sim.SimChip
 import dev.liquidphone.sim.SystemSims
 
 /** Qué pasó al ejecutar una decisión. */
 sealed interface DialOutcome {
     /** Se le pasó al sistema. */
     data object Sent : DialOutcome
-
-    /** Simulacro de debug: no se marcó nada. [chip] es null si no se eligió chip. */
-    data class Simulated(val number: String, val chip: SimChip?, val systemDialer: Boolean) : DialOutcome
 
     /** No hay marcador en el sistema. */
     data object Failed : DialOutcome
@@ -33,8 +28,7 @@ sealed interface DialOutcome {
  * Ejecuta lo que decidió CallDecider, siempre por el flujo estándar de Telecom. Es el único lugar
  * de la app que marca.
  *
- * Las emergencias van antes que el simulacro: el de una build de prueba no puede frenarlas. Siendo el
- * marcador predeterminado, salen por Telecom sin elegir chip, porque ACTION_DIAL volvería a esta app;
+ * Las emergencias van primero. Siendo el marcador predeterminado, salen por Telecom sin elegir chip, porque ACTION_DIAL volvería a esta app;
  * si no lo es, abren el marcador. Nunca se bloquean ni se interceptan. Ver SystemRoutes.
  */
 class Dialer(private val sims: SystemSims) {
@@ -44,14 +38,6 @@ class Dialer(private val sims: SystemSims) {
             return when (SystemRoutes.of(decision.reason, decision.number, isDefaultDialer(context))) {
                 SystemRoute.PLACE_WITHOUT_ACCOUNT -> place(context, decision.number, Bundle())
                 else -> openSystemDialer(context, decision.number)
-            }
-        }
-        if (DevTools.simulating()) {
-            return when (decision) {
-                is CallDecision.Place -> simulated(decision.number, decision.chip, false, "place slot=${decision.chip.slotNumber}")
-                is CallDecision.SystemChooses -> simulated(decision.number, null, false, "system")
-                is CallDecision.OpenSystemDialer -> simulated(decision.number, null, true, "dialer ${decision.reason}")
-                else -> DialOutcome.Failed
             }
         }
         return when (decision) {
@@ -86,12 +72,6 @@ class Dialer(private val sims: SystemSims) {
         DialOutcome.Sent
     } catch (e: SecurityException) {
         openSystemDialer(context, number)
-    }
-
-    private fun simulated(number: String, chip: SimChip?, systemDialer: Boolean, what: String): DialOutcome {
-        // Solo la decisión, nunca el número: con el modo seguro apagado podría ser real.
-        DevTools.logDecision(what)
-        return DialOutcome.Simulated(number, chip, systemDialer)
     }
 
     @SuppressLint("MissingPermission")

@@ -76,7 +76,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.liquidphone.DevTools
 import dev.liquidphone.MainActivity
 import dev.liquidphone.R
 import dev.liquidphone.core.calls.AudioRoute
@@ -119,7 +118,6 @@ class InCallActivity : ComponentActivity() {
         setContent {
             val settings by Stores.settings.state.collectAsStateWithLifecycle()
             val ui by CallManager.ui.collectAsStateWithLifecycle()
-            DevTools.WindowGuard()
             SystemBarsFor(isDarkTheme(settings.themeMode))
             GlassTheme(settings.glassStyle) {
                 GlassRoot(animated = settings.animatedBackground) {

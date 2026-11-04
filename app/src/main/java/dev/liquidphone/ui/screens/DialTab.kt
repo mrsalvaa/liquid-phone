@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.liquidphone.DevTools
 import dev.liquidphone.R
 import dev.liquidphone.core.dial.DialBuffer
 import dev.liquidphone.core.dial.DialFormat
@@ -281,7 +280,7 @@ fun RowCallButton(description: String, onClick: () -> Unit) {
 private fun Modifier.combinedClickableButton(description: String, onClick: () -> Unit): Modifier =
     combinedClickable(role = Role.Button, onClick = onClick).semantics { contentDescription = description }
 
-/** Lo que hay que saber antes de escribir: datos ficticios y permisos que faltan, con su motivo. */
+/** Lo que hay que saber antes de escribir: los permisos que faltan, con su motivo. */
 @Composable
 private fun DialNotices() {
     val tick by Repo.permissionTick.collectAsStateWithLifecycle()
@@ -292,7 +291,6 @@ private fun DialNotices() {
     val needContacts = remember(tick) { !Repo.granted(Manifest.permission.READ_CONTACTS) }
     val needChips = remember(tick) { !Repo.granted(Manifest.permission.READ_PHONE_STATE) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        DevTools.FakeDataBanner()
         if (needChips && !hideChips) {
             NoticeCard(str(R.string.permission_chips_text), str(R.string.permission_continue), { chips.launch(Manifest.permission.READ_PHONE_STATE) }, str(R.string.dismiss), { hideChips = true })
         }

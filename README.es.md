@@ -82,25 +82,22 @@ Siendo la app de teléfono:
 
 **Para volver al marcador anterior:** Ajustes → Aplicaciones → Elegir aplicaciones predeterminadas → Aplicación de teléfono, y elegí el que tenías. El marcador del sistema sigue instalado todo el tiempo.
 
-## Modo de pruebas seguro
+## Contactos de prueba
 
-Solo en debug y profile (`dev.liquidphone.debug`, "Teléfono (prueba)"). La release no contiene nada de esto (0 coincidencias en su código).
+Solo en debug y profile (`dev.liquidphone.debug`, "Teléfono (prueba)"). La release no contiene nada de esto. La build de prueba ve los contactos y las llamadas reales del celu, y **el botón de llamar hace llamadas de verdad**.
 
-- **Con la app de teléfono:** en modo seguro, un número que no es ficticio se ve como "Número oculto", también en notificaciones. Para usarla de verdad hay que apagar el modo seguro y el simulacro a mano.
-- **Modo seguro, encendido por defecto.** La app solo ve contactos con origen `liquidphone-debug-N` y las llamadas que insertó la herramienta. El filtro va dentro de cada consulta SQL: lo real ni siquiera se lee. Se apaga únicamente a mano, en Ajustes. Apagado, la ventana no se puede capturar (`FLAG_SECURE`).
-- **Simulacro de llamadas, encendido por defecto.** Llamar muestra "Se llamaría a [número] con [SIM n]" y no marca. También se apaga solo a mano. Las emergencias no pasan por el simulacro.
-- **Datos ficticios.** La herramienta crea 24 contactos y 40 llamadas, con números de rangos reservados para ficción y nombres con "(prueba)", y borra solo lo que creó, fila por fila. Si la agenda no está vacía, se niega a crear nada. Mientras existan, un aviso lo recuerda: también se ven en las apps del sistema, y **no conviene hacer llamadas reales** hasta borrarlos, porque Android borra las llamadas más viejas de cada chip a partir de 500. Por eso la herramienta se niega a pasar de 450, y las 500 entradas de la prueba de rendimiento solo existen en memoria.
+La herramienta crea 24 contactos variados: varios números, email, foto, nombre largo, sin teléfono y dos con el mismo número. Usa números de rangos reservados para ficción y nombres con "(prueba)", y borra solo lo que creó, fila por fila. Si la agenda tiene contactos de otro origen, se niega a crear nada. No toca el registro de llamadas.
 
 ```bash
 P=dev.liquidphone.debug
+adb shell pm grant $P android.permission.WRITE_CONTACTS                    # una vez por instalación
 adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_GENERATE -p $P       # crear
-adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_CLEAR -p $P          # borrar todo
+adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_CLEAR -p $P          # borrar lo creado
 adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_STATUS -p $P         # estado, solo cantidades
-adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_MEMORY -p $P --ei on 1 # 500 filas en memoria
 adb logcat -d -s LiquidPhoneDev:I
 ```
 
-El mismo borrado está en un botón de Ajustes. `tools/safe-capture.sh` saca una captura solo si el modo seguro está encendido y la app en primer plano, y recorta las barras del sistema. Ninguna orden por adb apaga el modo seguro ni el simulacro.
+`tools/safe-capture.sh` saca una captura solo si la app está en primer plano, y recorta las barras del sistema. Como la app muestra datos reales, no hay que capturar Recientes ni el historial de un contacto si hay llamadas reales.
 
 ## Lección: las apps de sincronización leen los contactos del sistema
 
@@ -117,7 +114,7 @@ En la primera prueba, con números argentinos inventados, aparecieron 2 fichas d
 - Con llamadas por Wi-Fi, un chip puede figurar "sin servicio" y llamar igual: por eso la pregunta ofrece usarlo de todos modos.
 - Un contacto con varios números llama desde su detalle, para elegir cuál.
 - El código de área por defecto solo existe para Argentina.
-- Los favoritos se marcan en la app de contactos: esta no escribe en la agenda.
+- Los favoritos se marcan en la app de contactos: esta no escribe en la agenda. La estrella de la ficha abre ese contacto en Liquid Contacts.
 
 ## Compilar
 
@@ -160,11 +157,11 @@ Al copiar, cambiá el paquete. Nada de esto marca ni toca el registro de llamada
 
 | Archivo | Qué hace |
 |---|---|
-| `contacts/SystemContacts.kt` | Solo lectura de la agenda, con filtro por consulta |
+| `contacts/SystemContacts.kt` | Solo lectura de la agenda |
 | `sim/SystemSims.kt` | Chips activos, cuentas y estado de servicio sin ubicación |
 | `ui/components/ContactComponents.kt` | Avatar, fila plana, índice, búsqueda, aviso, botón destructivo |
 
-**Debug (`app/src/debug/java/dev/liquidphone/`):** `DevTools.kt` y `DevReceiver.kt` son el modelo del modo seguro. Hay que reescribir los datos, no el mecanismo.
+**Debug (`app/src/debug/java/dev/liquidphone/`):** `DevTools.kt` y `DevReceiver.kt` crean y borran los contactos de prueba por adb. Hay que reescribir los datos, no el mecanismo.
 
 **No copiar:** `calls/`, `core/calls/`, `core/dial/` y las pantallas, que son propios de esta app.
 

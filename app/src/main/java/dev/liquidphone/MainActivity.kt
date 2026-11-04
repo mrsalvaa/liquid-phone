@@ -160,7 +160,6 @@ class MainActivity : ComponentActivity() {
         preferHighestRefreshRate()
         setContent {
             val settings by Stores.settings.state.collectAsStateWithLifecycle()
-            DevTools.WindowGuard()
             SystemBarsFor(isDarkTheme(settings.themeMode))
             GlassTheme(settings.glassStyle) {
                 PhoneUi(settings.animatedBackground, flatNav = settings.uiStyle == 1, startTab = settings.startTab)

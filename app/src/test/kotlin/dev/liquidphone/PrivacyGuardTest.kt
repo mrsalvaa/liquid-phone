@@ -66,8 +66,8 @@ class PrivacyGuardTest {
     }
 
     @Test
-    fun elSimulacroNoFrenaLasEmergencias() {
+    fun lasEmergenciasSeResuelvenAntesQueCualquierOtraDecision() {
         val dialer = File(root, "app/src/main/java/dev/liquidphone/calls/Dialer.kt").readText()
-        assertTrue(dialer.indexOf("DialerReason.EMERGENCY") in 0 until dialer.indexOf("DevTools.simulating()"))
+        assertTrue(dialer.indexOf("DialerReason.EMERGENCY") in 0 until dialer.indexOf("is CallDecision.Place"))
     }
 }

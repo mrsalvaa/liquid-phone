@@ -53,7 +53,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.liquidphone.DevTools
 import dev.liquidphone.R
 import dev.liquidphone.core.calls.CallGroup
 import dev.liquidphone.core.calls.CallLogTools
@@ -156,10 +155,8 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp),
             contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding()),
         ) {
-            item("aviso") { Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) { DevTools.FakeDataBanner() } }
             val list = items
             if (list != null && list.isEmpty()) {
-                item("modo-seguro") { DevTools.SafeModeHint(Modifier.padding(8.dp)) }
                 item("vacio") { EmptyState(str(R.string.recents_empty), str(R.string.recents_empty_hint), Modifier.padding(top = 40.dp)) }
             }
             items(list.orEmpty(), key = { it.group.key }) { item ->

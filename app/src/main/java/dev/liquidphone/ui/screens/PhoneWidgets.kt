@@ -58,7 +58,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.liquidphone.DevTools
 import dev.liquidphone.R
 import dev.liquidphone.calls.DialOutcome
 import dev.liquidphone.core.sim.AskReason
@@ -292,7 +291,6 @@ fun CallerHost(content: @Composable () -> Unit) {
         when (val outcome = Repo.dialer.execute(context, decision)) {
             DialOutcome.Sent -> Unit
             DialOutcome.Failed -> toast(str(R.string.no_dialer))
-            is DialOutcome.Simulated -> DevTools.simulatedText(outcome)?.let(toast)
         }
     }
 
@@ -427,22 +425,32 @@ fun PermissionGate(
     }
 }
 
-/** "Agregar a contactos" por el intent estándar: abre Liquid Contacts o la app que corresponda. */
-/** Abre el intent en Liquid Contacts si está; si no, en la app de contactos que haya. */
-fun openInContacts(context: Context, intent: Intent): Boolean = try {
-    context.startActivity(Intent(intent).setPackage(LIQUID_CONTACTS))
-    true
-} catch (e: ActivityNotFoundException) {
-    try {
+/**
+ * Abre el intent en Liquid Contacts si está; si no, en la app de contactos que haya. La build de
+ * prueba prefiere la build de prueba de Contacts, para poder probarlas juntas.
+ */
+fun openInContacts(context: Context, intent: Intent): Boolean {
+    val debug = context.packageName.endsWith(".debug")
+    val targets = if (debug) listOf("$LIQUID_CONTACTS.debug", LIQUID_CONTACTS) else listOf(LIQUID_CONTACTS)
+    for (target in targets) {
+        try {
+            context.startActivity(Intent(intent).setPackage(target))
+            return true
+        } catch (e: ActivityNotFoundException) {
+            // No está instalada: se prueba con la siguiente.
+        }
+    }
+    return try {
         context.startActivity(intent)
         true
-    } catch (e2: ActivityNotFoundException) {
+    } catch (e: ActivityNotFoundException) {
         false
     }
 }
 
 private const val LIQUID_CONTACTS = "dev.liquidcontacts"
 
+/** "Agregar a contactos" por el intent estándar: abre Liquid Contacts o la app que corresponda. */
 fun addToContacts(context: Context, number: String): Boolean = openInContacts(
     context,
     Intent(Intent.ACTION_INSERT_OR_EDIT).apply {

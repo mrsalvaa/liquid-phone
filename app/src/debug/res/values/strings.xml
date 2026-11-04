@@ -3,24 +3,4 @@
 <!-- Nombre distinto para no confundirla con el teléfono del celu ni con la release. -->
 <resources>
     <string name="app_name">Phone (test)</string>
-    <string name="dev_section">Tests (debug only)</string>
-    <string name="dev_safe_mode">Safe test mode</string>
-    <string name="dev_safe_mode_hint">Only fake data is visible. Off, the screen can\'t be captured.</string>
-    <string name="dev_safe_mode_off_title">Turn off safe mode?</string>
-    <string name="dev_safe_mode_off_text">The app will show your real contacts and calls. Only do this for your personal use. While it\'s off, no captures of this app are taken.</string>
-    <string name="dev_simulation">Call simulation</string>
-    <string name="dev_simulation_hint">The call button doesn\'t dial: it shows what it would do.</string>
-    <string name="dev_simulation_off_title">Turn off simulation?</string>
-    <string name="dev_simulation_off_text">The call button will place real calls.</string>
-    <string name="dev_simulation_off_fake">The call button will place real calls. There is fake data on the phone: delete it first, and don\'t make real calls while it exists.</string>
-    <string name="dev_turn_off">Turn off</string>
-    <string name="dev_foreign">There are %1$d entries in the contacts that aren\'t from this tool.</string>
-    <string name="dev_create">Create fake data</string>
-    <string name="dev_clear">Delete all fake data</string>
-    <string name="dev_counts">On the phone: %1$d fake contacts, %2$d fake calls.</string>
-    <string name="dev_fake_banner">There are %1$d fake calls and %2$d fake contacts on the phone. Don\'t make real calls while they exist.</string>
-    <string name="dev_simulated_call">Would call %1$s with %2$s</string>
-    <string name="dev_simulated_system">Would call %1$s; the system picks the SIM</string>
-    <string name="dev_simulated_dialer">Would open the system dialer with %1$s</string>
-    <string name="dev_safe_hint">Test mode: only fake data is shown. Your contacts and calls are still in the phone. To see them, turn off safe mode in Settings → Tests.</string>
 </resources>

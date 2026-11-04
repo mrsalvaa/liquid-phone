@@ -44,7 +44,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.liquidphone.DevTools
 import dev.liquidphone.R
 import dev.liquidphone.core.phone.PhoneNumbers
 import dev.liquidphone.core.sim.CallDecider
@@ -206,7 +205,6 @@ fun SettingsScreen(padding: PaddingValues, onBack: () -> Unit, toAreaCode: Boole
             }
         }
 
-        DevTools.SettingsCard()
         Spacer(Modifier.height(24.dp))
     }
 }

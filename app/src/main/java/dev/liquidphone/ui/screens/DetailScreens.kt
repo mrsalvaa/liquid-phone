@@ -10,6 +10,29 @@ import dev.liquidphone.ui.glass.SettingRow
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.RadioButtonChecked
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarOutline
+import androidx.compose.material3.Icon
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import dev.liquidphone.core.model.ContactEvent
+import dev.liquidphone.core.model.Email
+import dev.liquidphone.core.model.EventKind
+import dev.liquidphone.core.model.PostalAddress
+import dev.liquidphone.ui.glass.GlassIconButton
+import dev.liquidphone.ui.glass.styled
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -59,7 +82,6 @@ import dev.liquidphone.ui.components.DangerButton
 import dev.liquidphone.ui.glass.DialogSpec
 import dev.liquidphone.ui.glass.GlassButton
 import dev.liquidphone.ui.glass.GlassCard
-import dev.liquidphone.ui.glass.GlassChip
 import dev.liquidphone.ui.glass.LocalDialog
 import dev.liquidphone.ui.glass.LocalGlass
 import dev.liquidphone.ui.glass.SectionLabel
@@ -201,7 +223,11 @@ private fun historyOf(rows: List<CallRow>, phones: List<Phone>, numbers: PhoneNu
     return rows.filter { it.callable && (numbers.exact(it.number) ?: it.number.filter(Char::isDigit)) in keys }
 }
 
-/** Detalle de un contacto: sus números, los dos botones de llamar y su historial. */
+/**
+ * Ficha de un contacto, con el mismo orden y las mismas filas que la de Liquid Contacts, y lo propio
+ * de esta app: elegir número y chip, llamar y ver el historial. Acá no se escribe en la agenda: la
+ * estrella, abrir y editar llevan a Liquid Contacts, o a la app de contactos que haya.
+ */
 @Composable
 fun ContactDetailScreen(contactId: Long, padding: PaddingValues, onBack: () -> Unit) {
     val p = LocalGlass.current
@@ -214,31 +240,73 @@ fun ContactDetailScreen(contactId: Long, padding: PaddingValues, onBack: () -> U
     val contact by produceState<Contact?>(null, contactId, book) {
         value = withContext(Dispatchers.IO) { Repo.contacts.load(contactId) }
     }
-    var selected by rememberSaveable { mutableStateOf(0) }
+    var picked by rememberSaveable { mutableStateOf<Int?>(null) }
     val current = contact
 
+    fun openInContactsApp(action: String) {
+        val uri = Repo.contacts.lookupUri(contactId)
+        val intent = uri?.let { Intent(action).setDataAndType(it, ContactsContract.Contacts.CONTENT_ITEM_TYPE) }
+        if (intent == null || !openInContacts(context, intent)) toast(str(R.string.no_contacts_app))
+    }
+    fun launch(intent: Intent) {
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            toast(str(R.string.no_app))
+        }
+    }
+
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-        BackTitle(current?.displayName.orEmpty(), onBack)
+        BackTitle("", onBack) {
+            if (current != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassIconButton(
+                        if (current.starred) Icons.Rounded.Star else Icons.Rounded.StarOutline,
+                        str(if (current.starred) R.string.favorite_remove_in_contacts else R.string.favorite_add_in_contacts),
+                        { openInContactsApp(Intent.ACTION_VIEW) },
+                    )
+                    GlassIconButton(Icons.AutoMirrored.Rounded.OpenInNew, str(R.string.open_in_contacts), { openInContactsApp(Intent.ACTION_VIEW) })
+                    GlassIconButton(Icons.Rounded.Edit, str(R.string.edit_contact), { openInContactsApp(Intent.ACTION_EDIT) })
+                }
+            }
+        }
         if (current == null) return@Column
-        ContactAvatar(current.displayName, Modifier.align(Alignment.CenterHorizontally).padding(vertical = 8.dp), size = 88.dp, photoUri = book.rows.firstOrNull { it.id == contactId }?.photoUri)
+
+        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            ContactAvatar(current.displayName, size = 112.dp, photoUri = book.rows.firstOrNull { it.id == contactId }?.photoUri)
+            Text(
+                current.displayName,
+                Modifier.padding(top = 14.dp).semantics { heading() },
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = p.content,
+                textAlign = TextAlign.Center,
+            )
+            val work = listOfNotNull(current.jobTitle, current.organization).filter { it.isNotBlank() }.joinToString(" · ")
+            if (work.isNotEmpty()) Text(work, fontSize = 15.sp, color = p.contentSecondary, textAlign = TextAlign.Center)
+            if (!current.nickname.isNullOrBlank()) Text("“${current.nickname}”", fontSize = 15.sp, color = p.contentSecondary)
+        }
+
         val phones = current.phones
         if (phones.isEmpty()) {
             Text(str(R.string.contact_no_phones), color = p.contentSecondary, fontSize = 15.sp, modifier = Modifier.padding(vertical = 12.dp))
         } else {
-            val phone = phones[selected.coerceIn(phones.indices)]
-            if (phones.size > 1) SectionLabel(str(R.string.phones))
+            val selected = (picked ?: phones.indexOfFirst { it.primary }).takeIf { it in phones.indices } ?: 0
+            SectionLabel(str(R.string.phones))
             GlassCard {
                 phones.forEachIndexed { i, ph ->
                     val line = numbers.format(ph.number)
-                    if (phones.size > 1) {
-                        GlassChip("$line · ${phoneLabel(ph)}", i == selected, { selected = i }, Modifier.padding(vertical = 4.dp))
-                    } else {
-                        Text(line, fontSize = 20.sp, color = p.content)
-                        Text(phoneLabel(ph), fontSize = 13.sp, color = p.contentSecondary)
+                    PhoneRow(line, phoneLabel(ph), selected = i == selected, canPick = phones.size > 1, onPick = { picked = i }) {
+                        GlassIconButton(
+                            Icons.AutoMirrored.Rounded.Message,
+                            str(R.string.message_number, line),
+                            { launch(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", ph.number, null))) },
+                            size = 44.dp,
+                        )
                     }
                 }
             }
-            CallButtons(phone.number, Modifier.padding(vertical = 10.dp))
+            CallButtons(phones[selected].number, Modifier.padding(top = 12.dp, bottom = 4.dp))
             val history = remember(rows, phones, numbers) { historyOf(rows, phones, numbers).take(30) }
             if (history.isNotEmpty()) {
                 SectionLabel(str(R.string.history))
@@ -247,17 +315,154 @@ fun ContactDetailScreen(contactId: Long, padding: PaddingValues, onBack: () -> U
                 }
             }
         }
-        // Ver y editar los resuelve Liquid Contacts, o la app de contactos que haya: acá no se escribe en la agenda.
-        fun open(action: String) {
-            val uri = Repo.contacts.lookupUri(contactId)
-            val intent = uri?.let { Intent(action).setDataAndType(it, ContactsContract.Contacts.CONTENT_ITEM_TYPE) }
-            if (intent == null || !openInContacts(context, intent)) toast(str(R.string.no_contacts_app))
+
+        if (current.emails.isNotEmpty()) {
+            SectionLabel(str(R.string.emails))
+            GlassCard {
+                current.emails.forEach { e ->
+                    DetailRow(e.address, emailLabel(e)) { launch(Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", e.address, null))) }
+                }
+            }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GlassButton(str(R.string.open_in_contacts), { open(Intent.ACTION_VIEW) }, Modifier.weight(1f))
-            GlassButton(str(R.string.edit_contact), { open(Intent.ACTION_EDIT) }, Modifier.weight(1f))
+        if (current.addresses.isNotEmpty()) {
+            SectionLabel(str(R.string.addresses))
+            GlassCard {
+                current.addresses.forEach { a ->
+                    DetailRow(a.formatted, addressLabel(a)) { launch(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(a.formatted)))) }
+                }
+            }
+        }
+        if (current.events.isNotEmpty()) {
+            SectionLabel(str(R.string.dates))
+            GlassCard { current.events.forEach { e -> DetailRow(eventDate(e), eventLabel(e), null) } }
+        }
+        if (current.websites.isNotEmpty()) {
+            SectionLabel(str(R.string.websites))
+            GlassCard {
+                current.websites.forEach { w ->
+                    val url = safeWebUri(w)
+                    DetailRow(w, null, url?.let { { launch(Intent(Intent.ACTION_VIEW, it)) } })
+                }
+            }
+        }
+        if (current.groups.isNotEmpty()) {
+            SectionLabel(str(R.string.labels_section))
+            GlassCard { Text(current.groups.sorted().joinToString(" · "), Modifier.padding(vertical = 8.dp), fontSize = 16.sp, color = p.content) }
+        }
+        if (!current.note.isNullOrBlank()) {
+            SectionLabel(str(R.string.note))
+            GlassCard { Text(current.note!!, Modifier.padding(vertical = 8.dp), fontSize = 16.sp, color = p.content) }
         }
         Spacer(Modifier.padding(top = 24.dp))
+    }
+}
+
+/** Un número de la ficha. Con varios, tocarlo elige con cuál llamar; nunca llama solo. */
+@Composable
+private fun PhoneRow(number: String, label: String, selected: Boolean, canPick: Boolean, onPick: () -> Unit, trailing: @Composable () -> Unit) {
+    val p = LocalGlass.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier
+                .weight(1f)
+                .then(
+                    if (canPick) {
+                        Modifier.selectable(selected, remember { MutableInteractionSource() }, null, role = Role.RadioButton, onClick = onPick)
+                    } else {
+                        Modifier
+                    },
+                )
+                .semantics(mergeDescendants = true) { contentDescription = "$number, $label" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (canPick) {
+                Icon(
+                    styled(if (selected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked),
+                    null,
+                    Modifier.padding(end = 12.dp).size(22.dp),
+                    tint = if (selected) p.accentFg else p.contentSecondary,
+                )
+            }
+            Column {
+                Text(number, fontSize = 17.sp, color = p.content)
+                Text(label, fontSize = 13.sp, color = p.contentSecondary)
+            }
+        }
+        trailing()
+    }
+}
+
+/** Fila de un dato: valor grande, tipo abajo; tocarla hace la acción. La misma que en Liquid Contacts. */
+@Composable
+private fun DetailRow(value: String, label: String?, onClick: (() -> Unit)?) {
+    val p = LocalGlass.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .then(if (onClick != null) Modifier.clickable(remember { MutableInteractionSource() }, null, role = Role.Button, onClick = onClick) else Modifier)
+            .padding(vertical = 8.dp)
+            .semantics(mergeDescendants = true) { contentDescription = listOfNotNull(value, label).joinToString(", ") },
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(value, fontSize = 17.sp, color = p.content)
+        if (!label.isNullOrBlank()) Text(label, fontSize = 13.sp, color = p.contentSecondary)
+    }
+}
+
+/** Solo http y https: una agenda puede traer cualquier cosa como "sitio web" (javascript:, intent:). */
+private fun safeWebUri(url: String): Uri? {
+    val text = url.trim()
+    if (text.isEmpty() || text.any(Char::isWhitespace)) return null
+    return when (Uri.parse(text).scheme?.lowercase()) {
+        null -> Uri.parse("https://$text")
+        "http", "https" -> Uri.parse(text)
+        else -> null
+    }
+}
+
+private fun emailLabel(email: Email): String =
+    email.label?.takeIf { email.kind == LabelKind.CUSTOM && it.isNotBlank() } ?: str(
+        when (email.kind) {
+            LabelKind.HOME -> R.string.email_personal
+            LabelKind.WORK -> R.string.phone_work
+            LabelKind.MOBILE -> R.string.phone_mobile
+            else -> R.string.phone_other
+        },
+    )
+
+private fun addressLabel(address: PostalAddress): String =
+    address.label?.takeIf { address.kind == LabelKind.CUSTOM && it.isNotBlank() } ?: str(
+        when (address.kind) {
+            LabelKind.HOME -> R.string.phone_home
+            LabelKind.WORK -> R.string.phone_work
+            else -> R.string.phone_other
+        },
+    )
+
+private fun eventLabel(event: ContactEvent): String =
+    event.label?.takeIf { event.kind == EventKind.CUSTOM && it.isNotBlank() } ?: str(
+        when (event.kind) {
+            EventKind.BIRTHDAY -> R.string.event_birthday
+            EventKind.ANNIVERSARY -> R.string.event_anniversary
+            else -> R.string.event_other
+        },
+    )
+
+/** Fecha en el formato del idioma del teléfono ("14 de marzo de 1990"); sin año, solo día y mes. */
+private fun eventDate(event: ContactEvent): String {
+    val locale = java.util.Locale.getDefault()
+    return if (event.year != null) {
+        java.time.LocalDate.of(event.year!!, event.month, event.day).format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG).withLocale(locale))
+    } else {
+        val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "dMMMM")
+        java.time.MonthDay.of(event.month, event.day).format(java.time.format.DateTimeFormatter.ofPattern(pattern, locale))
     }
 }
 

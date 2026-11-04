@@ -18,7 +18,7 @@ Valores del cristal: la tabla de `DESIGN.md` de Liquid Contacts. Rojo destructiv
 
 ## Ajustes
 
-`data/AppSettings.kt`, en `files/settings.json`: los 8 campos de la suite con los mismos nombres y valores (`SettingsFormatTest` lo comprueba), `defaultCountry`, `defaultAreaCode` y `areaCodeNoticeDismissed` de Contacts, y los propios `simPolicy`, `primarySimSlot`, `startTab` y `keypadHaptics`. El modo seguro y el simulacro van aparte, en `files/dev_state.json`, que solo existe en debug.
+`data/AppSettings.kt`, en `files/settings.json`: los 8 campos de la suite con los mismos nombres y valores (`SettingsFormatTest` lo comprueba), `defaultCountry`, `defaultAreaCode` y `areaCodeNoticeDismissed` de Contacts, y los propios `simPolicy`, `primarySimSlot`, `startTab` y `keypadHaptics`.
 
 Íconos: los 5 estilos en el orden de siempre (Liquid por defecto, Material, Samsung, iPhone, Motorola) más monocromo. Los fondos y recipientes son los de Contacts; el dibujo es un tubo de teléfono.
 
@@ -27,7 +27,7 @@ Valores del cristal: la tabla de `DESIGN.md` de Liquid Contacts. Rojo destructiv
 `core/sim/CallDecider.kt` decide; `calls/Dialer.kt` ejecuta y es el único lugar que marca. El orden importa:
 
 1. Sin número, nada.
-2. **Emergencia:** ver "Emergencias y marcador". Si la comprobación falla, se trata igual. Va antes de permisos, chips y simulacro.
+2. **Emergencia:** ver "Emergencias y marcador". Si la comprobación falla, se trata igual. Va antes de permisos y chips.
 3. Códigos con `*` o `#`: marcador del sistema.
 4. Sin `CALL_PHONE`: marcador del sistema. Sin `READ_PHONE_STATE`: decide el sistema.
 5. Ranuras repetidas o inválidas, en el sistema o en el ajuste `primarySimSlot`: preguntar.
@@ -99,7 +99,6 @@ En la llamada, una emergencia solo ofrece silenciar, audio, tonos y colgar.
 - **Colgar y atender nunca se desplazan.** Tienen colores fijos: rojo `#C62828` y verde `#1B7F3B`.
 - **Bloqueo:** `BlockedNumberContract`, no una lista propia. Telecom corta antes de sonar y el sistema suspende el bloqueo después de una emergencia; hacerlo a mano arriesgaría eso.
 - **Perdidas:** Telecom avisa al marcador. El receptor no usa nada del intent, porque es exportado y cualquiera podría mandarlo.
-- **Modo seguro:** un número fuera de los rangos reservados se muestra como oculto, y en el registro solo se ven filas de esos rangos.
 
 ## Qué se probó
 
@@ -116,7 +115,6 @@ Etapa 2, en el emulador `liquid35` (Android 35), con números ficticios:
 | Perdida con chip, tocar la notificación | `SIM 1 · T-Mobile`; lleva a recientes y sale la notificación |
 | Bloqueo | El bloqueado no suena, otro sí, al desbloquear suena |
 | `tel:` de otra app | Deja el número escrito, sin marcar |
-| Modo seguro con número no ficticio | "Número oculto", en notificación también |
 | Horizontal, letra al 150 %, temas | Colgar siempre visible |
 | Contraste del ícono de colgar | 5,62:1 en los 8 temas y estilos medidos |
 | Botón contra lo adyacente | Ver "Contraste de los botones de llamada" |
@@ -183,7 +181,7 @@ Antes de reutilizar un número de Australia, confirmarlo en la página de ACMA.
 | Problema | Por qué pasaba | Solución |
 |---|---|---|
 | **`AGGREGATION_MODE_DISABLED` deja el contacto invisible.** Estuvo en el plan para que un contacto ficticio no se juntara con uno real. | La documentación dice que la ficha no tiene contacto y no sale en `Contacts`. | `AGGREGATION_MODE_SUSPENDED`, un nombre con "(prueba)" que nunca coincide con uno real, y el filtro excluye cualquier contacto que tenga fichas ajenas. |
-| **Las apps de sincronización leen los contactos del sistema: jamás crear contactos de prueba con números de formato real.** Con números argentinos inventados aparecieron 2 fichas ajenas, más nuevas que las ficticias y pegadas a ellas, que se fueron solas menos de 25 s después de borrarlas. | Toda app con permiso de contactos los lee, y las que sincronizan pueden enviarlos a su servidor. Un número inventado con formato real puede ser la línea de alguien. No se leyeron esas fichas: solo se contaron. | `FakeNumbers`: solo `+1 NXX 555-01XX` y `+44 7700 900XXX`, con un control antes de cada escritura y un test. La herramienta se niega a crear datos si la agenda no está vacía y avisa si aparece una ficha ajena. Las listas en memoria (`DEV_MEMORY`) no las ve nadie. |
+| **Las apps de sincronización leen los contactos del sistema: jamás crear contactos de prueba con números de formato real.** Con números argentinos inventados aparecieron 2 fichas ajenas, más nuevas que las ficticias y pegadas a ellas, que se fueron solas menos de 25 s después de borrarlas. | Toda app con permiso de contactos los lee, y las que sincronizan pueden enviarlos a su servidor. Un número inventado con formato real puede ser la línea de alguien. No se leyeron esas fichas: solo se contaron. | `FakeNumbers`: solo `+1 NXX 555-01XX` y `+44 7700 900XXX`, con un control antes de cada escritura y un test. La herramienta se niega a crear datos si la agenda no está vacía y avisa si aparece una ficha ajena. |
 | **`+44 7700 900XXX` no es válido para `libphonenumber`.** | Es un rango de ficción y la biblioteca no lo da por asignado. | Se muestra tal cual y coincide por la cola. El formato argentino lo cubren los tests de `:core`, no los datos del celu. |
 | **Filas ficticias en el registro pueden borrar filas reales.** | `CallLog.addCall` borra las más viejas de cada cuenta a partir de 500, y las ficticias cuentan. | 500 entradas solo en memoria; en el registro real unas 40, con tope de 450 por chip, un aviso mientras existan y borrarlas al terminar. |
 | **La `ui/glass` de Contacts no era la de Calendar `25ca0d6`.** | `DESIGN.md` de Contacts dice "sin cambios", pero después se agregó `pillVeil()`. | Comparar los archivos con `diff` antes de anotar un origen. |
@@ -191,14 +189,23 @@ Antes de reutilizar un número de Australia, confirmarlo en la página de ACMA.
 | **La ranura 1 no es la bandeja física.** | `getSimSlotIndex` es la ranura lógica: en el celu probado, la 0 es la eSIM. | Llamarla "SIM 1" como el sistema, y nunca deducir nada de `isEmbedded`. |
 | **`getPhoneAccount()` pide `READ_PHONE_NUMBERS`.** | Desde target 31. Ese permiso da el número de línea. | Nombre y color salen de `SubscriptionInfo`; `getPhoneAccount` no se usa. |
 | **El id de cuenta del registro podría ser un identificador del chip.** | Depende del celu y de la versión. En el celu probado no lo es. | `AccountKey` opaca: solo se compara y su `toString` no la muestra, con un test. |
-| **Una llamada de emergencia solo puede salir por `placeCall` siendo el marcador.** | La documentación solo la permite al predeterminado o al del sistema, y `ACTION_DIAL` sin destino volvería a esta app. | Según el rol: ver "Emergencias y marcador". También con el simulacro encendido. |
+| **Una llamada de emergencia solo puede salir por `placeCall` siendo el marcador.** | La documentación solo la permite al predeterminado o al del sistema, y `ACTION_DIAL` sin destino volvería a esta app. | Según el rol: ver "Emergencias y marcador". |
 | **Un botón de colgar dentro de un área que se desplaza se puede perder.** | En horizontal con el teclado abierto quedaba fuera de la pantalla. | Colgar y atender van fijos, afuera del área que se desplaza. |
 | **`CallStyle` no muestra `setVerificationText` en la notificación flotante.** | La línea de texto es la de `setContentText`. | El chip va en `setContentText`. |
 | **El módem del emulador rechaza `+` en salientes.** | Se ve como una llamada que se corta sola. | Probar sin `+`; distinto de un error de la app. |
-| **Las filas ficticias no prueban el formato real.** | Las escribe la misma herramienta con las mismas cuentas, así que siempre coinciden. | `DEV_ACCOUNT_CHECK` cuenta, solo cantidades, cuántas filas reales coinciden con los chips. |
+| **Las filas ficticias no prueban el formato real.** | Las escribe la misma herramienta con las mismas cuentas, así que siempre coinciden. | Hay que comprobarlo con filas reales, contando solo cantidades. |
 
 ### Para probar
 
-- El modo seguro y el simulacro no tienen orden por adb a propósito: solo se apagan a mano.
-- `tools/safe-capture.sh` se niega si el modo seguro está apagado, si la app no está en primer plano o si el celu está en horizontal, y recorta las barras. Antes de cada tanda, No molestar.
+- La build de prueba ve datos reales y llama de verdad: el modo seguro y el simulacro se sacaron a pedido del dueño del celu, que prueba con una agenda vacía y contactos de prueba. Antes de tocar el botón verde, confirmar que se quiere hacer una llamada.
+- `tools/safe-capture.sh` se niega si la app no está en primer plano o si el celu está en horizontal, y recorta las barras. No capturar Recientes ni historiales con llamadas reales. Antes de cada tanda, No molestar.
 - `adb logcat` solo con `-s LiquidPhoneDev:I` o `-s AndroidRuntime:E`; la herramienta solo registra cantidades y decisiones, nunca números.
+
+## Integración con Liquid Contacts
+
+- **Ficha en esta app:** el mismo orden y las mismas filas que la de Contacts, en solo lectura, más elegir número y chip, llamar e historial. Los sitios web solo abren `http` y `https`.
+- **Sin escribir en la agenda:** la estrella, abrir y editar llevan a Liquid Contacts por intent estándar. Sumar `WRITE_CONTACTS` solo para la estrella daría permiso sobre toda la agenda.
+- **Llamar desde Contacts:** abre el teclado de esta app con el número escrito y no marca. Volver regresa a Contacts.
+- **Builds de prueba:** cada app prefiere la build `.debug` de la otra; la release solo apunta a la release.
+- **Apariencia:** cada app guarda la suya, como el resto de la suite. Con el mismo tema se ven iguales.
+- **Límite conocido:** Phone → Contacts → Llamar deja el teclado como raíz: desde ahí, volver sale de la app.

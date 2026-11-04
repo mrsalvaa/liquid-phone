@@ -83,7 +83,7 @@
     <string name="call_count">%1$d calls</string>
     <string name="yesterday">Yesterday</string>
     <string name="history">History</string>
-    <string name="phones">Numbers</string>
+    <string name="phones">Phones</string>
     <string name="delete_entry">Delete this entry</string>
     <string name="delete_entry_title">Delete this entry?</string>
     <string name="delete_entry_text">These calls will be deleted from the system call log.</string>
@@ -150,7 +150,6 @@
         <item quantity="other">%d numbers</item>
     </plurals>
     <string name="call_conference">Conference</string>
-    <string name="number_masked">Number hidden (safe mode)</string>
     <string name="call_in_progress">Call in progress</string>
     <string name="call_hangup">Hang up</string>
     <string name="call_answer">Answer</string>
@@ -211,4 +210,18 @@
     <string name="call_busy">The line is busy</string>
     <string name="new_contact">New contact</string>
     <string name="edit_contact">Edit contact</string>
+    <string name="emails">Emails</string>
+    <string name="addresses">Addresses</string>
+    <string name="dates">Dates</string>
+    <string name="websites">Websites</string>
+    <string name="note">Note</string>
+    <string name="labels_section">Labels</string>
+    <string name="email_personal">Personal</string>
+    <string name="event_birthday">Birthday</string>
+    <string name="event_anniversary">Anniversary</string>
+    <string name="event_other">Other date</string>
+    <string name="message_number">Send a message to %1$s</string>
+    <string name="no_app">There is no app to do that</string>
+    <string name="favorite_add_in_contacts">Add to favorites in Contacts</string>
+    <string name="favorite_remove_in_contacts">Remove from favorites in Contacts</string>
 </resources>

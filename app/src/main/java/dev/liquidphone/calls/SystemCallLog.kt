@@ -16,19 +16,16 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.conflate
 
 /**
- * El registro de llamadas del sistema. La app no guarda copia. [allowedCalls] devuelve los ids que
- * se pueden ver y borrar, o null si no hay filtro; va dentro del SQL (ver el modo seguro de debug).
+ * El registro de llamadas del sistema. La app no guarda copia.
  * Todas las funciones hacen E/S: llamarlas fuera del hilo principal.
  */
-class SystemCallLog(context: Context, private val allowedCalls: () -> Set<Long>?) {
+class SystemCallLog(context: Context) {
     private val resolver = context.contentResolver
 
     /** De la más nueva a la más vieja. */
     fun rows(): List<CallRow> {
-        val allowed = allowedCalls()
-        val selection = allowed?.let { "${Calls._ID} IN (${it.ifEmpty { setOf(-1L) }.joinToString(",")})" }
         val uri = Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, MAX_ROWS.toString()).build()
-        return resolver.query(uri, PROJECTION, selection, null, "${Calls.DATE} DESC, ${Calls._ID} DESC")?.use { c ->
+        return resolver.query(uri, PROJECTION, null, null, "${Calls.DATE} DESC, ${Calls._ID} DESC")?.use { c ->
             buildList(c.count) {
                 while (c.moveToNext()) {
                     val component = c.getString(5)
@@ -49,7 +46,7 @@ class SystemCallLog(context: Context, private val allowedCalls: () -> Set<Long>?
         }.orEmpty()
     }
 
-    /** Perdidas sin ver, de la más nueva a la más vieja. Con filtro, solo las permitidas. */
+    /** Perdidas sin ver, de la más nueva a la más vieja. */
     fun newMissed(): List<CallRow> =
         rows().filter { it.type == CallType.MISSED }.let { missed ->
             val fresh = resolver.query(Calls.CONTENT_URI, arrayOf(Calls._ID), newMissedSelection(), null, null)?.use { c ->
@@ -58,7 +55,7 @@ class SystemCallLog(context: Context, private val allowedCalls: () -> Set<Long>?
             missed.filter { it.id in fresh }
         }
 
-    /** Dejan de ser nuevas. Con filtro, solo las permitidas: lo real no se toca. */
+    /** Dejan de ser nuevas. */
     fun markMissedSeen() {
         val values = android.content.ContentValues().apply { put(Calls.NEW, 0) }
         try {
@@ -68,18 +65,11 @@ class SystemCallLog(context: Context, private val allowedCalls: () -> Set<Long>?
         }
     }
 
-    private fun newMissedSelection(): String {
-        val base = "${Calls.TYPE} = ${Calls.MISSED_TYPE} AND ${Calls.NEW} = 1"
-        val allowed = allowedCalls() ?: return base
-        return "$base AND ${Calls._ID} IN (${allowed.ifEmpty { setOf(-1L) }.joinToString(",")})"
-    }
+    private fun newMissedSelection(): String = "${Calls.TYPE} = ${Calls.MISSED_TYPE} AND ${Calls.NEW} = 1"
 
-    /** Borra esas filas, una por una. Con filtro, solo las permitidas. Devuelve cuántas borró. */
-    fun delete(ids: Collection<Long>): Int {
-        val allowed = allowedCalls()
-        val targets = if (allowed == null) ids else ids.filter { it in allowed }
-        return targets.sumOf { id -> resolver.delete(Calls.CONTENT_URI, "${Calls._ID} = ?", arrayOf(id.toString())) }
-    }
+    /** Borra esas filas, una por una. Devuelve cuántas borró. */
+    fun delete(ids: Collection<Long>): Int =
+        ids.sumOf { id -> resolver.delete(Calls.CONTENT_URI, "${Calls._ID} = ?", arrayOf(id.toString())) }
 
     /** Emite cada vez que cambia el registro. */
     fun changes(): Flow<Unit> = callbackFlow {

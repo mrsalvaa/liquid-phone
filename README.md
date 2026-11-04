@@ -82,25 +82,22 @@ While it is your phone app:
 
 **To go back to the previous dialer:** Settings → Apps → Choose default apps → Phone app, and pick the one you had. The system dialer stays installed the whole time.
 
-## Safe test mode
+## Test contacts
 
-Debug and profile only (`dev.liquidphone.debug`, "Phone (test)"). The release contains none of this (0 matches in its code).
+Debug and profile only (`dev.liquidphone.debug`, "Phone (test)"). The release contains none of this. The test build sees the phone's real contacts and calls, and **the call button places real calls**.
 
-- **As phone app:** in safe mode, a number that isn't fake shows as "Número oculto", in notifications too. To really use it, turn safe mode and the simulation off by hand.
-- **Safe mode, on by default.** The app only sees contacts with source `liquidphone-debug-N` and calls inserted by the tool. The filter is inside each SQL query: real data isn't even read. It can only be turned off by hand, in Settings. While off, the window can't be captured (`FLAG_SECURE`).
-- **Call simulation, on by default.** Calling shows "Would call [number] with [SIM n]" and doesn't dial. It also only turns off by hand. Emergencies don't go through the simulation.
-- **Fake data.** The tool creates 24 contacts and 40 calls, with numbers from ranges reserved for fiction and names with "(prueba)", and deletes only what it created, row by row. If the contacts aren't empty, it refuses to create anything. While they exist, a notice says so: they also show up in system apps, and **you shouldn't make real calls** until they're deleted, since Android deletes each SIM's oldest calls past 500. That's why the tool refuses to go past 450, and the 500 entries of the performance test only exist in memory.
+The tool creates 24 varied contacts: several numbers, email, photo, long name, no phone and two sharing a number. It uses numbers from ranges reserved for fiction and names with "(prueba)", and deletes only what it created, row by row. If the address book has contacts from another source, it refuses to create anything. It doesn't touch the call log.
 
 ```bash
 P=dev.liquidphone.debug
+adb shell pm grant $P android.permission.WRITE_CONTACTS                    # once per install
 adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_GENERATE -p $P       # create
-adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_CLEAR -p $P          # delete everything
+adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_CLEAR -p $P          # delete what it created
 adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_STATUS -p $P         # status, counts only
-adb shell am broadcast -f 0x20 -a dev.liquidphone.DEV_MEMORY -p $P --ei on 1 # 500 rows in memory
 adb logcat -d -s LiquidPhoneDev:I
 ```
 
-The same delete is a button in Settings. `tools/safe-capture.sh` takes a capture only if safe mode is on and the app is in the foreground, and crops the system bars. No adb command turns off safe mode or the simulation.
+`tools/safe-capture.sh` takes a capture only if the app is in the foreground, and crops the system bars. Since the app shows real data, don't capture Recents or a contact's history if there are real calls.
 
 ## Lesson: sync apps read the system contacts
 
@@ -117,7 +114,7 @@ In the first test, with made-up Argentine numbers, 2 entries from another app sh
 - With Wi-Fi calling a SIM can show "no service" and still call: that's why the question offers using it anyway.
 - A contact with several numbers calls from its details, to choose which one.
 - The default area code only exists for Argentina.
-- Favorites are marked in the contacts app: this one doesn't write to the address book.
+- Favorites are marked in the contacts app: this one doesn't write to the address book. The star on a contact opens it in Liquid Contacts.
 
 ## Build
 
@@ -160,11 +157,11 @@ When copying, change the package. None of this dials or touches the call log.
 
 | File | What it does |
 |---|---|
-| `contacts/SystemContacts.kt` | Read-only address book, with a per-query filter |
+| `contacts/SystemContacts.kt` | Read-only address book |
 | `sim/SystemSims.kt` | Active SIMs, accounts and service state without location |
 | `ui/components/ContactComponents.kt` | Avatar, flat row, index, search, notice, destructive button |
 
-**Debug (`app/src/debug/java/dev/liquidphone/`):** `DevTools.kt` and `DevReceiver.kt` are the model for safe mode. Rewrite the data, not the mechanism.
+**Debug (`app/src/debug/java/dev/liquidphone/`):** `DevTools.kt` and `DevReceiver.kt` create and delete test contacts over adb. Rewrite the data, not the mechanism.
 
 **Don't copy:** `calls/`, `core/calls/`, `core/dial/` and the screens, which are specific to this app.
 

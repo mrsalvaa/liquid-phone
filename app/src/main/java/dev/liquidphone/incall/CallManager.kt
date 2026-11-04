@@ -170,8 +170,7 @@ object CallManager {
         val d = call.details
         val raw = numberOf(call)
         val visible = d.handlePresentation == TelecomManager.PRESENTATION_ALLOWED && raw.isNotEmpty()
-        // En el modo seguro de debug, un número que no es ficticio no se ve.
-        val shown = if (visible) DevTools.maskNumber(raw) else null
+        val shown = raw.takeIf { visible }
         val contact = shown?.let { Repo.contactFor(it) }
         val number = shown?.let { Repo.numbers.value.format(it) }
         val chips = Repo.sims.state.value.chips
@@ -182,7 +181,6 @@ object CallManager {
                 live.isConference -> str(R.string.call_conference)
                 contact != null -> contact.displayName
                 number != null -> number
-                visible -> str(R.string.number_masked)
                 else -> str(R.string.number_hidden)
             },
             subtitle = number.takeIf { contact != null },

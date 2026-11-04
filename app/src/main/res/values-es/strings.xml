@@ -83,12 +83,12 @@
     <string name="call_count">%1$d llamadas</string>
     <string name="yesterday">Ayer</string>
     <string name="history">Historial</string>
-    <string name="phones">Números</string>
+    <string name="phones">Teléfonos</string>
     <string name="delete_entry">Borrar esta entrada</string>
     <string name="delete_entry_title">¿Borrar esta entrada?</string>
     <string name="delete_entry_text">Estas llamadas se van a borrar del registro de llamadas del sistema.</string>
     <string name="contact_no_phones">Este contacto no tiene números.</string>
-    <string name="phone_mobile">Celular</string>
+    <string name="phone_mobile">Móvil</string>
     <string name="phone_home">Casa</string>
     <string name="phone_work">Trabajo</string>
     <string name="phone_main">Principal</string>
@@ -154,7 +154,6 @@
         <item quantity="other">%d números</item>
     </plurals>
     <string name="call_conference">Conferencia</string>
-    <string name="number_masked">Número oculto (modo seguro)</string>
     <string name="call_in_progress">Llamada en curso</string>
     <string name="call_hangup">Colgar</string>
     <string name="call_answer">Atender</string>
@@ -215,4 +214,18 @@
     <string name="call_busy">La línea está ocupada</string>
     <string name="new_contact">Nuevo contacto</string>
     <string name="edit_contact">Editar contacto</string>
+    <string name="emails">Emails</string>
+    <string name="addresses">Direcciones</string>
+    <string name="dates">Fechas</string>
+    <string name="websites">Sitios web</string>
+    <string name="note">Nota</string>
+    <string name="labels_section">Etiquetas</string>
+    <string name="email_personal">Personal</string>
+    <string name="event_birthday">Cumpleaños</string>
+    <string name="event_anniversary">Aniversario</string>
+    <string name="event_other">Otra fecha</string>
+    <string name="message_number">Mandar un mensaje a %1$s</string>
+    <string name="no_app">No hay ninguna app para hacer eso</string>
+    <string name="favorite_add_in_contacts">Agregar a favoritos en Contactos</string>
+    <string name="favorite_remove_in_contacts">Quitar de favoritos en Contactos</string>
 </resources>
