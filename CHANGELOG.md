@@ -4,7 +4,7 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
-## Unreleased
+## 1.1.0
 
 ### Added
 - Keypad with Spanish T9, recents from the system call log, favorites and contacts.

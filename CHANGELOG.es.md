@@ -4,7 +4,7 @@
 
 [English](CHANGELOG.md) | **Español**
 
-## Sin publicar
+## 1.1.0
 
 ### Agregado
 - Teclado con T9 en español, recientes del registro del sistema, favoritos y contactos.
