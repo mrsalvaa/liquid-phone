@@ -4,7 +4,7 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
-## Unreleased
+## 1.1.1
 
 ### Changed
 - New Samsung and iPhone icons. The Motorola icon is removed: anyone using it moves to Liquid.
