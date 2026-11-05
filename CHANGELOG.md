@@ -4,7 +4,7 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
-## Unreleased
+## 1.2.0
 
 ### Added
 - Recents: a button to delete the call history. With a filter on, it only deletes what the filter shows. It always asks first, and says how many calls.

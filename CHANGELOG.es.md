@@ -4,7 +4,7 @@
 
 [English](CHANGELOG.md) | **Español**
 
-## Sin publicar
+## 1.2.0
 
 ### Novedades
 - Recientes: un botón para borrar el historial de llamadas. Con un filtro puesto, borra solo lo que se ve. Siempre pregunta antes y dice cuántas llamadas son.
