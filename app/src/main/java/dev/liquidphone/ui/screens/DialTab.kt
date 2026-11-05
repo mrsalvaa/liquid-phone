@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package dev.liquidphone.ui.screens
 
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -133,6 +137,8 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
     val onAdd: () -> Unit = { if (!addToContacts(context, text)) toast(str(R.string.no_contacts_app)) }
 
     BoxWithConstraints(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
+        // Las teclas más altas solo si sobra lugar para ver también lo que coincide.
+        val keyHeight = if (maxHeight >= 640.dp) 70.dp else 60.dp
         // En horizontal no entran las cuatro filas de teclas debajo de la lista.
         if (maxHeight < 560.dp) {
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -155,7 +161,7 @@ fun DialTab(padding: PaddingValues, onSettings: () -> Unit, onContact: (Long) ->
                 )
                 DialResults(text, results, numbers::format, onContact, null, Modifier.weight(1f))
                 NumberDisplay(shown, text.isNotEmpty(), onBackspace, onClear, null)
-                Keypad(onKey, onPlus, Modifier.fillMaxWidth(), keyHeight = 60.dp)
+                Keypad(onKey, onPlus, Modifier.fillMaxWidth(), keyHeight = keyHeight)
                 Spacer(Modifier.height(16.dp))
                 CallButtons(text)
                 // Que el bloque no quede pegado a la barra de pestañas.
@@ -254,6 +260,8 @@ private fun Keypad(onKey: (Char) -> Unit, onPlus: () -> Unit, modifier: Modifier
     }
 }
 
+private const val KEY_PRESSED_SCALE = 0.86f
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Key(key: Char, onKey: (Char) -> Unit, onLong: (() -> Unit)?, modifier: Modifier, height: Dp) {
@@ -262,6 +270,23 @@ private fun Key(key: Char, onKey: (Char) -> Unit, onLong: (() -> Unit)?, modifie
     val pressed by interaction.collectIsPressedAsState()
     val letters = if (key == '0') "+" else T9.KEY_LETTERS[key].orEmpty()
     val name = str(KEY_NAMES.getValue(key))
+    // El dígito se achica apenas al apretar y vuelve con un rebote mínimo. Va por las interacciones
+    // y no por "pressed": en un toque rápido, apretar y soltar llegan casi juntos y no se vería.
+    val reduced = LocalReducedMotion.current
+    val press = remember { Animatable(1f) }
+    LaunchedEffect(interaction, reduced) {
+        if (reduced) return@LaunchedEffect
+        var down: Job? = null
+        interaction.interactions.collect { event ->
+            when (event) {
+                is PressInteraction.Press -> down = launch { press.animateTo(KEY_PRESSED_SCALE, tween(60, easing = LinearOutSlowInEasing)) }
+                is PressInteraction.Release, is PressInteraction.Cancel -> launch {
+                    down?.join()
+                    press.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium))
+                }
+            }
+        }
+    }
     Column(
         modifier
             .height(height)
@@ -279,7 +304,20 @@ private fun Key(key: Char, onKey: (Char) -> Unit, onLong: (() -> Unit)?, modifie
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(key.toString(), fontSize = if (height < 56.dp) 22.sp else 28.sp, color = p.content, fontWeight = FontWeight.Medium)
+        Text(
+            key.toString(),
+            Modifier.graphicsLayer {
+                scaleX = press.value
+                scaleY = press.value
+            },
+            fontSize = when {
+                height < 56.dp -> 22.sp
+                height < 70.dp -> 28.sp
+                else -> 34.sp
+            },
+            color = p.content,
+            fontWeight = FontWeight.Medium,
+        )
         // La línea se reserva también sin letras, para que todos los dígitos queden alineados.
         if (height >= 56.dp) {
             Text(letters.ifEmpty { " " }, fontSize = 11.sp, color = p.contentSecondary, letterSpacing = 1.sp)

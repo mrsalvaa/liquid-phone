@@ -67,9 +67,12 @@ class SystemCallLog(context: Context) {
 
     private fun newMissedSelection(): String = "${Calls.TYPE} = ${Calls.MISSED_TYPE} AND ${Calls.NEW} = 1"
 
-    /** Borra esas filas, una por una. Devuelve cuántas borró. */
+    /** Borra esas filas y nada más, de a tandas. Devuelve cuántas borró. */
     fun delete(ids: Collection<Long>): Int =
-        ids.sumOf { id -> resolver.delete(Calls.CONTENT_URI, "${Calls._ID} = ?", arrayOf(id.toString())) }
+        ids.chunked(DELETE_BATCH).sumOf { batch ->
+            val marks = batch.joinToString(",") { "?" }
+            resolver.delete(Calls.CONTENT_URI, "${Calls._ID} IN ($marks)", batch.map { it.toString() }.toTypedArray())
+        }
 
     /** Emite cada vez que cambia el registro. */
     fun changes(): Flow<Unit> = callbackFlow {
@@ -85,6 +88,9 @@ class SystemCallLog(context: Context) {
 
     private companion object {
         const val MAX_ROWS = 2000
+
+        /** SQLite admite una cantidad limitada de parámetros por consulta. */
+        const val DELETE_BATCH = 200
         val PROJECTION = arrayOf(
             Calls._ID, Calls.NUMBER, Calls.TYPE, Calls.DATE, Calls.DURATION,
             Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.PHONE_ACCOUNT_ID, Calls.NUMBER_PRESENTATION,

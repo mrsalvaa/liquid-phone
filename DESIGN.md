@@ -64,6 +64,12 @@ Medido sobre capturas en 7 combinaciones de tema, estilo y fondo; es el peor val
 | Botón de llamar destacado | 4,91:1 |
 | Iniciales del avatar | 5,27:1 |
 
+## Borrar del registro
+
+Todo pasa por `rememberCallDeleter` (`RecentsTab.kt`): permiso con explicación recién al borrar, confirmación con la cantidad de llamadas y toast con lo borrado. Borrar el historial borra lo que deja ver el filtro. No hay deshacer: volver a insertar con `CallLog.addCall` puede purgar filas reales viejas. Probado solo en el emulador con números reservados: en el celu borraría llamadas reales.
+
+Las barras de selección (`ui/components/SelectionBars.kt`) son las de Contacts. El Atrás de la selección va en `MainActivity`, registrado antes que los hosts, para que primero cierre una ventana abierta.
+
 ## Excepciones locales de ui/glass
 
 **Pendiente de llevar a Contacts y Calendar.** Toda la `ui/glass` es copia de Contacts salvo esto, en `ui/glass/GlassExceptions.kt`. En `Theme.kt` solo hay dos llamadas a esa capa.

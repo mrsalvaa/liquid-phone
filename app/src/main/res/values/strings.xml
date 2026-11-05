@@ -229,5 +229,40 @@
     <string name="slide_reject">Slide to reject</string>
     <string name="channel_incoming_quiet">Incoming calls with the screen open</string>
     <string name="filter_title">Filter calls</string>
-    <string name="filter_done">Done</string>
+    <string name="filter_type">Call type</string>
+    <string name="filter_type_all">All</string>
+    <string name="filter_type_missed">Missed only</string>
+    <string name="filter_sim">SIM</string>
+    <string name="filter_other_sim_hint">Calls from a SIM that is no longer here</string>
+    <string name="filter_clear">Clear filters</string>
+    <string name="filter_none">No calls with these filters</string>
+    <string name="filter_none_hint">None match the filters.</string>
+    <string name="delete_history">Delete call history</string>
+    <string name="delete_history_title">Delete all call history?</string>
+    <string name="delete_filtered_title">Delete the filtered calls?</string>
+    <string name="delete_calls_failed">Couldn\'t delete the calls.</string>
+    <string name="select">Select</string>
+    <string name="select_all">All</string>
+    <string name="select_all_full">Select all</string>
+    <string name="selection_exit">Leave selection</string>
+    <plurals name="filter_show">
+        <item quantity="one">Show %d call</item>
+        <item quantity="other">Show %d calls</item>
+    </plurals>
+    <plurals name="delete_calls_text">
+        <item quantity="one">%d call will be deleted from the system call log. This can\'t be undone.</item>
+        <item quantity="other">%d calls will be deleted from the system call log. This can\'t be undone.</item>
+    </plurals>
+    <plurals name="delete_selected_title">
+        <item quantity="one">Delete %d entry?</item>
+        <item quantity="other">Delete %d entries?</item>
+    </plurals>
+    <plurals name="calls_deleted">
+        <item quantity="one">%d call deleted</item>
+        <item quantity="other">%d calls deleted</item>
+    </plurals>
+    <plurals name="selected_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
 </resources>

@@ -4,6 +4,16 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
+## Unreleased
+
+### Added
+- Recents: a button to delete the call history. With a filter on, it only deletes what the filter shows. It always asks first, and says how many calls.
+- Recents: multiple selection. Long-press an entry to start; the details stay on the (i) button.
+
+### Changed
+- Keypad: taller keys and bigger digits, with a small animation when pressed.
+- Recents: the filter window is redesigned, with a group for call type and one for SIM, one choice per group, and a button that says how many calls will show.
+
 ## 1.1.1
 
 ### Changed

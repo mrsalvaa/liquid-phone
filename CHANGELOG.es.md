@@ -4,6 +4,16 @@
 
 [English](CHANGELOG.md) | **Español**
 
+## Sin publicar
+
+### Novedades
+- Recientes: un botón para borrar el historial de llamadas. Con un filtro puesto, borra solo lo que se ve. Siempre pregunta antes y dice cuántas llamadas son.
+- Recientes: selección múltiple. Se empieza manteniendo apretada una entrada; el detalle sigue en el botón (i).
+
+### Cambios
+- Teclado: teclas más altas y números más grandes, con una animación chica al apretarlos.
+- Recientes: la ventana de filtros es nueva, con un grupo para el tipo de llamada y otro para el chip, una opción por grupo y un botón que dice cuántas llamadas se van a ver.
+
 ## 1.1.1
 
 ### Cambios

@@ -90,6 +90,10 @@ import dev.liquidphone.ui.glass.LocalDialog
 import dev.liquidphone.ui.glass.LocalGlass
 import dev.liquidphone.ui.glass.LocalPrompt
 import dev.liquidphone.ui.glass.LocalReducedMotion
+import dev.liquidphone.ui.components.LocalSelectionBottom
+import dev.liquidphone.ui.components.SelectionActions
+import dev.liquidphone.ui.components.SelectionBottom
+import dev.liquidphone.ui.components.SelectionTop
 import dev.liquidphone.ui.glass.LocalTabActive
 import dev.liquidphone.ui.glass.NavItem
 import dev.liquidphone.ui.glass.PromptHost
@@ -179,6 +183,7 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
     var prompt by remember { mutableStateOf<PromptSpec?>(null) }
     var dialog by remember { mutableStateOf<DialogSpec?>(null) }
     var toast by remember { mutableStateOf<Pair<String, Long>?>(null) }
+    var selection by remember { mutableStateOf<SelectionBottom?>(null) }
     val reduced = LocalReducedMotion.current
     val conflict by Repo.countryConflict.collectAsStateWithLifecycle()
     val pendingDial by Repo.pendingDial.collectAsStateWithLifecycle()
@@ -214,6 +219,8 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
     }
     BackHandler(enabled = stack.isNotEmpty() && sheet == null && prompt == null && dialog == null) { pop() }
     BackHandler(enabled = stack.isEmpty() && tab != TAB_KEYPAD) { tab = TAB_KEYPAD }
+    // Atrás primero cierra lo que esté abierto arriba de la selección, después sale de ella.
+    BackHandler(enabled = selection != null && sheet == null && prompt == null && dialog == null) { selection?.top?.value?.onExit?.invoke() }
 
     val insets = WindowInsets.safeDrawing.asPaddingValues()
     val dir = LocalLayoutDirection.current
@@ -237,6 +244,7 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
         LocalPrompt provides { prompt = it },
         LocalDialog provides { dialog = it },
         LocalToast provides { toast = it to System.nanoTime() },
+        LocalSelectionBottom provides { selection = it },
     ) {
         // Dos chips de países distintos: no se adivina el país por defecto.
         LaunchedEffect(conflict) {
@@ -255,7 +263,7 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
             animated = animated,
             floating = {
                 AnimatedVisibility(
-                    stack.isEmpty(),
+                    stack.isEmpty() && selection == null,
                     modifier = Modifier.align(Alignment.BottomCenter),
                     enter = fadeIn() + if (reduced) fadeIn() else slideInVertically { it / 2 },
                     exit = fadeOut() + if (reduced) fadeOut() else slideOutVertically { it / 2 },
@@ -277,6 +285,25 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
                             modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
                         )
                     }
+                }
+                // Durante la selección múltiple, la píldora cambia a las opciones.
+                var lastSelection by remember { mutableStateOf(selection) }
+                if (selection != null) lastSelection = selection
+                AnimatedVisibility(
+                    selection != null,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = fadeIn() + if (reduced) fadeIn() else slideInVertically { it / 2 },
+                    exit = fadeOut() + if (reduced) fadeOut() else slideOutVertically { it / 2 },
+                ) {
+                    lastSelection?.let { SelectionActions(it, flatNav) }
+                }
+                AnimatedVisibility(
+                    selection != null,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    enter = fadeIn() + if (reduced) fadeIn() else slideInVertically { -it / 2 },
+                    exit = fadeOut() + if (reduced) fadeOut() else slideOutVertically { -it / 2 },
+                ) {
+                    lastSelection?.let { SelectionTop(it, flatNav, insets.calculateTopPadding()) }
                 }
                 // Volver a la llamada desde el teclado, por ejemplo al agregar otra.
                 inCall.primary?.let { call ->
@@ -311,7 +338,7 @@ private fun PhoneUi(animated: Boolean, flatNav: Boolean, startTab: Int) {
                         .drawWithContent { if (tabsAlpha > 0.01f) drawContent() }
                         .then(if (top != null) Modifier.clearAndSetSemantics { }.pointerInput(Unit) { swallowTouches() } else Modifier),
                 ) {
-                    SwipeTabs(tab, onScreen = top == null, onTab = { tab = it }, onDrag = { tabDrag = it }) { t ->
+                    SwipeTabs(tab, onScreen = top == null, swipe = selection == null, onTab = { tab = it }, onDrag = { tabDrag = it }) { t ->
                         when (t) {
                             TAB_KEYPAD -> DialTab(tabPadding, onSettings, onContact)
                             TAB_RECENTS -> RecentsTab(tabPadding, onSettings, onCall)
@@ -371,6 +398,7 @@ private suspend fun PointerInputScope.swallowTouches() {
 private fun SwipeTabs(
     tab: Int,
     onScreen: Boolean,
+    swipe: Boolean,
     onTab: (Int) -> Unit,
     onDrag: (Float?) -> Unit,
     content: @Composable (Int) -> Unit,
@@ -403,7 +431,7 @@ private fun SwipeTabs(
         state = pager,
         flingBehavior = PagerDefaults.flingBehavior(pager, snapPositionalThreshold = 0.15f),
         beyondViewportPageCount = TAB_COUNT - 1,
-        userScrollEnabled = onScreen,
+        userScrollEnabled = onScreen && swipe,
         key = { it },
         modifier = Modifier.fillMaxSize(),
     ) { page ->

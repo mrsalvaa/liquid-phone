@@ -233,5 +233,45 @@
     <string name="slide_reject">Deslizá para rechazar</string>
     <string name="channel_incoming_quiet">Llamadas entrantes con la pantalla abierta</string>
     <string name="filter_title">Filtrar llamadas</string>
-    <string name="filter_done">Listo</string>
+    <string name="filter_type">Tipo de llamada</string>
+    <string name="filter_type_all">Todas</string>
+    <string name="filter_type_missed">Solo perdidas</string>
+    <string name="filter_sim">Chip</string>
+    <string name="filter_other_sim_hint">Llamadas de un chip que ya no está</string>
+    <string name="filter_clear">Quitar filtros</string>
+    <string name="filter_none">Sin llamadas con estos filtros</string>
+    <string name="filter_none_hint">Ninguna coincide con los filtros.</string>
+    <string name="delete_history">Borrar el historial de llamadas</string>
+    <string name="delete_history_title">¿Borrar todo el historial?</string>
+    <string name="delete_filtered_title">¿Borrar las llamadas filtradas?</string>
+    <string name="delete_calls_failed">No se pudieron borrar las llamadas.</string>
+    <string name="select">Seleccionar</string>
+    <string name="select_all">Todas</string>
+    <string name="select_all_full">Seleccionar todas</string>
+    <string name="selection_exit">Salir de la selección</string>
+    <plurals name="filter_show">
+        <item quantity="one">Ver %d llamada</item>
+        <item quantity="many">Ver %d llamadas</item>
+        <item quantity="other">Ver %d llamadas</item>
+    </plurals>
+    <plurals name="delete_calls_text">
+        <item quantity="one">Se va a borrar %d llamada del registro del sistema. No se puede deshacer.</item>
+        <item quantity="many">Se van a borrar %d llamadas del registro del sistema. No se puede deshacer.</item>
+        <item quantity="other">Se van a borrar %d llamadas del registro del sistema. No se puede deshacer.</item>
+    </plurals>
+    <plurals name="delete_selected_title">
+        <item quantity="one">¿Borrar %d entrada?</item>
+        <item quantity="many">¿Borrar %d entradas?</item>
+        <item quantity="other">¿Borrar %d entradas?</item>
+    </plurals>
+    <plurals name="calls_deleted">
+        <item quantity="one">%d llamada borrada</item>
+        <item quantity="many">%d llamadas borradas</item>
+        <item quantity="other">%d llamadas borradas</item>
+    </plurals>
+    <plurals name="selected_count">
+        <item quantity="one">%d seleccionada</item>
+        <item quantity="many">%d seleccionadas</item>
+        <item quantity="other">%d seleccionadas</item>
+    </plurals>
 </resources>

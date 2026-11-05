@@ -5,11 +5,21 @@ import dev.liquidphone.ui.glass.SettingRow
 import dev.liquidphone.ui.glass.LocalDialog
 import dev.liquidphone.ui.glass.GlassButton
 import dev.liquidphone.ui.glass.DialogSpec
-import dev.liquidphone.ui.components.SwitchRow
+import dev.liquidphone.ui.components.BarItem
+import dev.liquidphone.ui.components.DangerButton
+import dev.liquidphone.ui.components.LocalSelectionBottom
+import dev.liquidphone.ui.components.SelectionBottom
+import dev.liquidphone.ui.components.SelectionTopState
 import androidx.compose.ui.semantics.selected
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.RadioButtonChecked
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import android.text.format.DateFormat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -39,6 +49,10 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,10 +90,14 @@ import dev.liquidphone.ui.components.ContactAvatar
 import dev.liquidphone.ui.components.dangerText
 import dev.liquidphone.ui.glass.GlassIconButton
 import dev.liquidphone.ui.glass.LocalGlass
+import dev.liquidphone.ui.glass.LocalTabActive
+import dev.liquidphone.ui.glass.readableOn
 import dev.liquidphone.ui.glass.ScreenTitle
 import dev.liquidphone.ui.glass.styled
+import dev.liquidphone.util.plural
 import dev.liquidphone.util.str
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
@@ -122,21 +141,56 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
     var missedOnly by rememberSaveable { mutableStateOf(false) }
     val caller = LocalCaller.current
     val dialog = LocalDialog.current
+    val deleteCalls = rememberCallDeleter()
 
     val present = remember(sims) { sims.chips.mapNotNull { it.account }.toSet() }
     val hasGone = remember(rows, present) { rows.any { it.account == null || it.account !in present } }
     val selectedChip = sims.chips.firstOrNull { it.slotIndex == chipFilter }
-    val filter: ChipFilter = when {
-        chipFilter == FILTER_GONE -> ChipFilter.NoLongerPresent(present)
-        selectedChip?.account != null -> ChipFilter.Only(selectedChip.account!!)
-        else -> ChipFilter.All
+    // Una función, no un valor: la ventana de filtros queda abierta mientras cambia lo elegido.
+    fun currentFilter(): ChipFilter {
+        val account = sims.chips.firstOrNull { it.slotIndex == chipFilter }?.account
+        return when {
+            chipFilter == FILTER_GONE -> ChipFilter.NoLongerPresent(present)
+            account != null -> ChipFilter.Only(account)
+            else -> ChipFilter.All
+        }
     }
+    val filter = currentFilter()
     val items by produceState<List<RecentItem>?>(null, rows, book, numbers, filter, missedOnly) {
         value = withContext(Dispatchers.Default) {
-            val filtered = CallLogTools.filter(rows, filter).let { list -> if (missedOnly) list.filter { it.type == CallType.MISSED } else list }
-            CallLogTools.group(filtered, numbers).map { group ->
+            CallLogTools.group(visibleRows(rows, filter, missedOnly), numbers).map { group ->
                 RecentItem(group, if (group.latest.callable) Repo.contactFor(group.number) else null, shownNumber(group.latest, numbers::format))
             }
+        }
+    }
+
+    // Selección múltiple, por entrada de la lista: la clave deja de valer si esa entrada cambia.
+    var selected by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val list = items.orEmpty()
+    val chosen = list.filter { it.group.key in selected }
+    val selecting = selected.isNotEmpty()
+    LaunchedEffect(items) { if (items != null) selected = chosen.mapTo(HashSet()) { it.group.key } }
+    // Al irse de la pestaña, con una notificación por ejemplo, la selección no sigue abierta.
+    val tabActive = LocalTabActive.current
+    LaunchedEffect(tabActive) { if (!tabActive) selected = emptySet() }
+    if (selecting) {
+        val ids = chosen.flatMap { it.group.ids }
+        val top = rememberUpdatedState(
+            SelectionTopState(chosen.size, chosen.size < list.size, { selected = list.mapTo(HashSet()) { it.group.key } }, { selected = emptySet() }),
+        )
+        val bar = rememberUpdatedState(
+            listOf(
+                BarItem(Icons.Rounded.DeleteOutline, str(R.string.delete), str(R.string.delete), ids.isNotEmpty()) {
+                    deleteCalls(
+                        DeleteCalls(plural(R.plurals.delete_selected_title, chosen.size, chosen.size), plural(R.plurals.delete_calls_text, ids.size, ids.size), ids) { selected = emptySet() },
+                    )
+                },
+            ),
+        )
+        val publish = LocalSelectionBottom.current
+        DisposableEffect(Unit) {
+            publish(SelectionBottom(top, bar))
+            onDispose { publish(null) }
         }
     }
 
@@ -158,19 +212,56 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
                         {
                             dialog(
                                 DialogSpec(str(R.string.filter_title)) { dismiss ->
-                                    SwitchRow(str(R.string.filter_missed), missedOnly, { missedOnly = it })
+                                    Text(str(R.string.filter_type), Modifier.semantics { heading() }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LocalGlass.current.contentSecondary)
+                                    FilterChoice(str(R.string.filter_type_all), !missedOnly) { missedOnly = false }
+                                    FilterChoice(str(R.string.filter_type_missed), missedOnly) { missedOnly = true }
                                     if (sims.multiple || hasGone) {
-                                        SettingRowChoice(str(R.string.filter_all_sims), null, chipFilter == FILTER_ALL) { chipFilter = FILTER_ALL }
+                                        Text(str(R.string.filter_sim), Modifier.padding(top = 14.dp).semantics { heading() }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LocalGlass.current.contentSecondary)
+                                        FilterChoice(str(R.string.filter_all_sims), chipFilter == FILTER_ALL) { chipFilter = FILTER_ALL }
                                         sims.chips.forEach { chip ->
-                                            SettingRowChoice(simName(chip), chip, chipFilter == chip.slotIndex) { chipFilter = chip.slotIndex }
+                                            FilterChoice(simName(chip), chipFilter == chip.slotIndex, chip = chip) { chipFilter = chip.slotIndex }
                                         }
-                                        if (hasGone) SettingRowChoice(str(R.string.filter_other_sim), null, chipFilter == FILTER_GONE) { chipFilter = FILTER_GONE }
+                                        if (hasGone) FilterChoice(str(R.string.filter_other_sim), chipFilter == FILTER_GONE, subtitle = str(R.string.filter_other_sim_hint)) { chipFilter = FILTER_GONE }
                                     }
-                                    GlassButton(str(R.string.filter_done), dismiss, Modifier.fillMaxWidth().padding(top = 8.dp), prominent = true)
+                                    // Se ve antes de cerrar cuántas llamadas deja el filtro.
+                                    val now = currentFilter()
+                                    val shown = remember(rows, now, missedOnly) { visibleRows(rows, now, missedOnly).size }
+                                    GlassButton(
+                                        if (shown == 0) str(R.string.filter_none) else plural(R.plurals.filter_show, shown, shown),
+                                        dismiss,
+                                        Modifier.fillMaxWidth().padding(top = 16.dp),
+                                        prominent = true,
+                                    )
+                                    if (missedOnly || chipFilter != FILTER_ALL) {
+                                        GlassButton(
+                                            str(R.string.filter_clear),
+                                            {
+                                                missedOnly = false
+                                                chipFilter = FILTER_ALL
+                                            },
+                                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                                        )
+                                    }
                                 },
                             )
                         },
                         prominent = active != null,
+                    )
+                    GlassIconButton(
+                        Icons.Rounded.DeleteOutline,
+                        str(R.string.delete_history),
+                        {
+                            // Lo que se borra es lo que se ve: con un filtro, solo lo filtrado.
+                            val ids = visibleRows(rows, filter, missedOnly).map { it.id }
+                            deleteCalls(
+                                DeleteCalls(
+                                    str(if (active == null) R.string.delete_history_title else R.string.delete_filtered_title),
+                                    plural(R.plurals.delete_calls_text, ids.size, ids.size),
+                                    ids,
+                                ),
+                            )
+                        },
+                        enabled = list.isNotEmpty(),
                     )
                     GlassIconButton(Icons.Rounded.Settings, str(R.string.settings), onSettings)
                 },
@@ -180,33 +271,111 @@ private fun RecentsList(padding: PaddingValues, onSettings: () -> Unit, onOpen: 
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp),
             contentPadding = PaddingValues(top = 4.dp, bottom = padding.calculateBottomPadding()),
         ) {
-            val list = items
-            if (list != null && list.isEmpty()) {
-                item("vacio") { EmptyState(str(R.string.recents_empty), str(R.string.recents_empty_hint), Modifier.padding(top = 40.dp)) }
+            if (items != null && list.isEmpty()) {
+                item("vacio") {
+                    EmptyState(str(R.string.recents_empty), str(if (active == null) R.string.recents_empty_hint else R.string.filter_none_hint), Modifier.padding(top = 40.dp))
+                }
             }
-            items(list.orEmpty(), key = { it.group.key }) { item ->
+            items(list, key = { it.group.key }) { item ->
+                val key = item.group.key
+                val toggle = { selected = if (key in selected) selected - key else selected + key }
                 RecentRow(
                     item,
                     chipOf(item.group.account, sims.chips),
                     showChip = sims.multiple || item.group.account !in present,
-                    onCall = { if (item.group.latest.callable) caller(item.group.number, CallTarget.UsePolicy) else onOpen(item.group) },
+                    selected = if (selecting) key in selected else null,
+                    onCall = {
+                        when {
+                            selecting -> toggle()
+                            item.group.latest.callable -> caller(item.group.number, CallTarget.UsePolicy)
+                            else -> onOpen(item.group)
+                        }
+                    },
                     onOpen = { onOpen(item.group) },
+                    onSelect = toggle,
                 )
             }
         }
     }
 }
 
-/** Una opción de la ventana de filtros. */
+/** Las filas que deja ver el filtro, antes de agrupar. */
+private fun visibleRows(rows: List<CallRow>, filter: ChipFilter, missedOnly: Boolean): List<CallRow> =
+    CallLogTools.filter(rows, filter).let { list -> if (missedOnly) list.filter { it.type == CallType.MISSED } else list }
+
+/** Filas del registro para borrar, con lo que se le pregunta al usuario. [after] corre al terminar. */
+class DeleteCalls(val title: String, val text: String, val ids: List<Long>, val after: () -> Unit = {})
+
+/**
+ * Borra del registro del sistema siempre igual: el permiso se pide recién acá, con su explicación,
+ * y nada se borra sin confirmar.
+ */
 @Composable
-private fun SettingRowChoice(title: String, chip: SimChip?, chosen: Boolean, onClick: () -> Unit) {
+fun rememberCallDeleter(): (DeleteCalls) -> Unit {
+    val p = LocalGlass.current
+    val dialog = LocalDialog.current
+    val toast = LocalToast.current
+    val scope = rememberCoroutineScope()
+    var waiting by remember { mutableStateOf<DeleteCalls?>(null) }
+
+    fun run(request: DeleteCalls) {
+        scope.launch {
+            val deleted = withContext(Dispatchers.IO) { runCatching { Repo.deleteCalls(request.ids) }.getOrNull() }
+            toast(if (deleted == null) str(R.string.delete_calls_failed) else plural(R.plurals.calls_deleted, deleted, deleted))
+            request.after()
+        }
+    }
+    fun confirm(request: DeleteCalls) = dialog(
+        DialogSpec(request.title) { dismiss ->
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(request.text, color = p.content, fontSize = 14.sp)
+                DangerButton(str(R.string.delete), { dismiss(); run(request) }, Modifier.fillMaxWidth())
+                GlassButton(str(R.string.cancel), dismiss, Modifier.fillMaxWidth())
+            }
+        },
+    )
+    val writeLog = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        val request = waiting
+        waiting = null
+        if (!ok) toast(str(R.string.permission_delete_denied)) else if (request != null) confirm(request)
+    }
+    return { request ->
+        if (Repo.granted(Manifest.permission.WRITE_CALL_LOG)) {
+            confirm(request)
+        } else {
+            waiting = request
+            dialog(
+                DialogSpec(str(R.string.permission_delete_title)) { dismiss ->
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(str(R.string.permission_delete_text), color = p.content, fontSize = 14.sp)
+                        GlassButton(str(R.string.permission_continue), { dismiss(); writeLog.launch(Manifest.permission.WRITE_CALL_LOG) }, Modifier.fillMaxWidth(), prominent = true)
+                        GlassButton(str(R.string.cancel), dismiss, Modifier.fillMaxWidth())
+                    }
+                },
+            )
+        }
+    }
+}
+
+/** Una opción de la ventana de filtros: se elige una sola por grupo, y el círculo lo deja claro. */
+@Composable
+private fun FilterChoice(title: String, chosen: Boolean, chip: SimChip? = null, subtitle: String? = null, onClick: () -> Unit) {
     val p = LocalGlass.current
     SettingRow(
         title,
-        Modifier.semantics { selected = chosen },
+        Modifier.heightIn(min = 48.dp).semantics { selected = chosen },
+        subtitle = subtitle,
         onClick = onClick,
-        leading = chip?.let { { SimBadge(it, Modifier.padding(end = 12.dp)) } },
-        trailing = { if (chosen) Icon(styled(Icons.Rounded.Check), null, tint = p.accentFg) },
+        leading = {
+            Icon(
+                styled(if (chosen) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked),
+                null,
+                Modifier.size(22.dp),
+                tint = if (chosen) p.accentFg else p.contentSecondary,
+            )
+            Spacer(Modifier.width(12.dp))
+            if (chip != null) SimBadge(chip, Modifier.padding(end = 10.dp))
+        },
     )
 }
 
@@ -244,10 +413,13 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier) {
     Icon(styled(icon), null, modifier.size(16.dp), tint = tint)
 }
 
-/** Fila plana: sin cristal, como en Contactos. Tocar llama con la política; el ícono abre el detalle. */
+/**
+ * Fila plana: sin cristal, como en Contactos. Tocar llama con la política; el ícono abre el detalle y
+ * mantener apretado selecciona. [selected] es null mientras la lista no está seleccionando.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecentRow(item: RecentItem, chip: SimChip?, showChip: Boolean, onCall: () -> Unit, onOpen: () -> Unit) {
+private fun RecentRow(item: RecentItem, chip: SimChip?, showChip: Boolean, selected: Boolean?, onCall: () -> Unit, onOpen: () -> Unit, onSelect: () -> Unit) {
     val p = LocalGlass.current
     val context = LocalContext.current
     val group = item.group
@@ -274,16 +446,25 @@ private fun RecentRow(item: RecentItem, chip: SimChip?, showChip: Boolean, onCal
             .clip(RoundedCornerShape(16.dp))
             .combinedClickable(
                 role = Role.Button,
-                onClickLabel = if (latest.callable) str(R.string.call) else str(R.string.details),
-                onLongClickLabel = str(R.string.details),
-                onLongClick = onOpen,
+                onClickLabel = if (selected != null) str(R.string.select) else if (latest.callable) str(R.string.call) else str(R.string.details),
+                onLongClickLabel = str(R.string.select),
+                onLongClick = onSelect,
                 onClick = onCall,
             )
-            .semantics(mergeDescendants = true) { contentDescription = description }
+            .semantics(mergeDescendants = true) {
+                contentDescription = description
+                if (selected != null) this.selected = selected
+            }
             .padding(start = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ContactAvatar(item.contact?.displayName ?: "", photoUri = item.contact?.photoUri)
+        if (selected == true) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(p.accentFg), contentAlignment = Alignment.Center) {
+                Icon(styled(Icons.Rounded.Check), null, Modifier.size(26.dp), tint = readableOn(p.accentFg))
+            }
+        } else {
+            ContactAvatar(item.contact?.displayName ?: "", photoUri = item.contact?.photoUri)
+        }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -308,15 +489,20 @@ private fun RecentRow(item: RecentItem, chip: SimChip?, showChip: Boolean, onCal
                 }
             }
         }
-        Box(
-            Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .combinedClickable(role = Role.Button, onClick = onOpen)
-                .semantics { contentDescription = str(R.string.details_of, item.title) },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(styled(Icons.Rounded.Info), null, Modifier.size(22.dp), tint = p.contentSecondary)
+        // Al seleccionar, toda la fila selecciona; el lugar queda para que nada salte.
+        if (selected != null) {
+            Spacer(Modifier.size(48.dp))
+        } else {
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(role = Role.Button, onClick = onOpen)
+                    .semantics { contentDescription = str(R.string.details_of, item.title) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(styled(Icons.Rounded.Info), null, Modifier.size(22.dp), tint = p.contentSecondary)
+            }
         }
     }
 }

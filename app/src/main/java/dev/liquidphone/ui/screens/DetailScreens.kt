@@ -133,24 +133,7 @@ fun CallDetailScreen(group: CallGroup, padding: PaddingValues, onBack: () -> Uni
     val shown = remember(numbers, group) { shownNumber(latest, numbers::format) }
     val original = chipOf(group.account, sims.chips)
 
-    fun delete() {
-        scope.launch {
-            withContext(Dispatchers.IO) { Repo.deleteCalls(group.ids) }
-            onBack()
-        }
-    }
-    fun confirmDelete() = dialog(
-        DialogSpec(str(R.string.delete_entry_title)) { dismiss ->
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(str(R.string.delete_entry_text), color = p.content, fontSize = 14.sp)
-                DangerButton(str(R.string.delete), { dismiss(); delete() }, Modifier.fillMaxWidth())
-                GlassButton(str(R.string.cancel), dismiss, Modifier.fillMaxWidth())
-            }
-        },
-    )
-    val writeLog = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) confirmDelete() else toast(str(R.string.permission_delete_denied))
-    }
+    val deleteCalls = rememberCallDeleter()
 
     Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         BackTitle(contact?.displayName ?: shown, onBack, subtitle = shown.takeIf { contact != null })
@@ -186,21 +169,7 @@ fun CallDetailScreen(group: CallGroup, padding: PaddingValues, onBack: () -> Uni
         Spacer(Modifier.padding(top = 12.dp))
         DangerButton(
             str(R.string.delete_entry),
-            {
-                if (Repo.granted(Manifest.permission.WRITE_CALL_LOG)) {
-                    confirmDelete()
-                } else {
-                    dialog(
-                        DialogSpec(str(R.string.permission_delete_title)) { dismiss ->
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(str(R.string.permission_delete_text), color = p.content, fontSize = 14.sp)
-                                GlassButton(str(R.string.permission_continue), { dismiss(); writeLog.launch(Manifest.permission.WRITE_CALL_LOG) }, Modifier.fillMaxWidth(), prominent = true)
-                                GlassButton(str(R.string.cancel), dismiss, Modifier.fillMaxWidth())
-                            }
-                        },
-                    )
-                }
-            },
+            { deleteCalls(DeleteCalls(str(R.string.delete_entry_title), str(R.string.delete_entry_text), group.ids, onBack)) },
             Modifier.fillMaxWidth(),
             icon = Icons.Rounded.Delete,
         )
