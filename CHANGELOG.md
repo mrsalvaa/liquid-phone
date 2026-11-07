@@ -4,7 +4,7 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
-## Unreleased
+## 1.2.2
 
 ### Changed
 - During a call, the contact photo is bigger: up to 280 dp, or three quarters of the width.
