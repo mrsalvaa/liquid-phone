@@ -123,17 +123,17 @@ Get the APK from [Releases](../../releases) and install it. Changes in each vers
 Check that the file wasn't altered:
 
 ```bash
-sha256sum -c liquid-phone-v1.2.0.apk.sha256
+sha256sum -c liquid-phone-v1.2.1.apk.sha256
 ```
 
 ```
-1c31b8c2e09c8e5dee41cd657de9597d2e825b0ce0fb3b2da677854062e2e4d6  liquid-phone-v1.2.0.apk
+9ba400e9089a2e28a1af6a35c44b479c03de1de46161ae9aece0835c3c305a5c  liquid-phone-v1.2.1.apk
 ```
 
 And that it's signed with the project key (SHA-256 fingerprint of the certificate):
 
 ```bash
-apksigner verify --print-certs liquid-phone-v1.2.0.apk
+apksigner verify --print-certs liquid-phone-v1.2.1.apk
 ```
 
 ```
