@@ -285,7 +285,7 @@ internal fun IncomingScreen(
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                     who()
                     Spacer(Modifier.height(12.dp))
-                    middle(96.dp)
+                    middle(128.dp)
                 }
                 Spacer(Modifier.weight(1f))
             }
@@ -294,9 +294,11 @@ internal fun IncomingScreen(
                 // Arriba de todo, pero sin quedar pegado a la barra de estado.
                 Spacer(Modifier.height(44.dp))
                 who()
-                Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                    // La foto, lo más grande que entre: hasta 280 dp o tres cuartos del ancho.
+                    val side = minOf(PhotoMax, maxWidth * 0.75f, maxHeight - 16.dp).coerceAtLeast(96.dp)
                     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                        middle(184.dp)
+                        middle(side)
                     }
                 }
                 Spacer(Modifier.height(SlideHeight + SliderBottom))
@@ -379,7 +381,7 @@ internal fun OngoingScreen(ui: InCallUi, main: CallView, keypad: Boolean, layout
                     CallHeader(main)
                     OtherCall(main, ui.secondary)
                     // Con el teclado abierto en sólido, este lo tapa entero: la foto se oculta igual que en vertical.
-                    if (!(keypad && p.solid)) main.photoUri?.let { CallPhoto(main.title, it, 96.dp, Modifier.padding(top = 12.dp)) }
+                    if (!(keypad && p.solid)) main.photoUri?.let { CallPhoto(main.title, it, 128.dp, Modifier.padding(top = 12.dp)) }
                 }
                 Spacer(Modifier.weight(1f))
             }
@@ -397,7 +399,7 @@ internal fun OngoingScreen(ui: InCallUi, main: CallView, keypad: Boolean, layout
                 val top = with(density) { layout.headerBottom.toDp() }
                 val bottom = with(density) { (layout.rootHeight - layout.controlsTop).coerceAtLeast(0f).toDp() }
                 BoxWithConstraints(Modifier.fillMaxSize().padding(top = top, bottom = bottom), contentAlignment = Alignment.Center) {
-                    val side = minOf(184.dp, maxHeight - 16.dp)
+                    val side = minOf(PhotoMax, maxWidth * 0.75f, maxHeight - 16.dp)
                     if (side >= 64.dp) {
                         val spec = tween<Float>(if (reduced) 0 else 200)
                         AnimatedVisibility(!(keypad && p.solid), enter = fadeIn(spec), exit = fadeOut(spec)) {
@@ -409,6 +411,9 @@ internal fun OngoingScreen(ui: InCallUi, main: CallView, keypad: Boolean, layout
         }
     }
 }
+
+/** Tope de la foto del contacto en vertical; en horizontal va a 128 dp, al lado de los datos. */
+private val PhotoMax = 280.dp
 
 /** La foto del contacto con su marco de dos píxeles. */
 @Composable

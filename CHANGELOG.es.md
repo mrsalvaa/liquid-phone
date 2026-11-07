@@ -4,6 +4,11 @@
 
 [English](CHANGELOG.md) | **Español**
 
+## Sin publicar
+
+### Cambios
+- En la llamada, la foto del contacto es más grande: hasta 280 dp o tres cuartos del ancho.
+
 ## 1.2.1
 
 ### Cambios
