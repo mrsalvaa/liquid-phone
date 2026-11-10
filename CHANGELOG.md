@@ -4,6 +4,12 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
+## Unreleased
+
+### Changed
+- During a call, the contact photo is a bit smaller: up to 240 dp, or two thirds of the width.
+- A short tone plays when a call ends, whoever hangs up (not when declining or on missed calls).
+
 ## 1.2.2
 
 ### Changed

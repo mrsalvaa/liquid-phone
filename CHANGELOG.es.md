@@ -4,6 +4,12 @@
 
 [English](CHANGELOG.md) | **Español**
 
+## Sin publicar
+
+### Cambios
+- En la llamada, la foto del contacto es un poco más chica: hasta 240 dp o dos tercios del ancho.
+- Suena un tono corto al terminar una llamada, corte quien corte (no al rechazar ni en las perdidas).
+
 ## 1.2.2
 
 ### Cambios

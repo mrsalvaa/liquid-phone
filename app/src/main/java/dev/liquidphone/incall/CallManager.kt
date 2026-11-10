@@ -3,6 +3,8 @@ package dev.liquidphone.incall
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -77,7 +79,10 @@ object CallManager {
     val ui: StateFlow<InCallUi> = _ui.asStateFlow()
 
     private val callback = object : Call.Callback() {
-        override fun onStateChanged(call: Call, state: Int) = publish()
+        override fun onStateChanged(call: Call, state: Int) {
+            if (state == Call.STATE_DISCONNECTED) endTone(call)
+            publish()
+        }
         override fun onDetailsChanged(call: Call, details: Call.Details) = publish()
         override fun onConferenceableCallsChanged(call: Call, conferenceable: List<Call>) = publish()
         override fun onParentChanged(call: Call, parent: Call?) = publish()
@@ -115,9 +120,30 @@ object CallManager {
 
     fun onRemoved(call: Call) {
         call.unregisterCallback(callback)
+        endTone(call)
         explainFailure(call)
         calls.remove(idOf(call))
         publish()
+    }
+
+    /** Llamadas que ya sonaron al cortar: el aviso llega por el estado y otra vez al quitarla. */
+    private val toned = HashSet<Int>()
+
+    /**
+     * Un tono corto al terminar una llamada que llegó a conectarse, corte quien corte. No suena al
+     * rechazar ni en una perdida, ni por cada parte de una conferencia.
+     */
+    private fun endTone(call: Call) {
+        val id = idOf(call)
+        if (call.details.connectTimeMillis <= 0L || call.parent != null || !toned.add(id)) return
+        handler.postDelayed({ toned.remove(id) }, 10_000)
+        try {
+            val tone = ToneGenerator(AudioManager.STREAM_VOICE_CALL, END_TONE_VOLUME)
+            tone.startTone(ToneGenerator.TONE_PROP_PROMPT, END_TONE_MILLIS)
+            handler.postDelayed({ tone.release() }, END_TONE_MILLIS + 300L)
+        } catch (e: RuntimeException) {
+            // Sin audio disponible: se corta en silencio.
+        }
     }
 
     /** Una saliente que no salió no puede cortarse sin decir nada: se muestra la causa de la red. */
@@ -311,5 +337,7 @@ object CallManager {
     }
 
     private const val DTMF_MILLIS = 150L
+    private const val END_TONE_MILLIS = 200
+    private const val END_TONE_VOLUME = 80
     private const val SCREEN_WAIT_MILLIS = 1500L
 }
