@@ -3,8 +3,9 @@ package dev.liquidphone.incall
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -130,17 +131,25 @@ object CallManager {
     private val toned = HashSet<Int>()
 
     /**
-     * Un tono corto al terminar una llamada que llegó a conectarse, corte quien corte. No suena al
-     * rechazar ni en una perdida, ni por cada parte de una conferencia.
+     * Un "bloop" corto (res/raw/call_end.wav, sale de tools/call-end-tone.py) al terminar una
+     * llamada que llegó a conectarse, corte quien corte. No suena al rechazar ni en una perdida, ni
+     * por cada parte de una conferencia.
      */
     private fun endTone(call: Call) {
         val id = idOf(call)
         if (call.details.connectTimeMillis <= 0L || call.parent != null || !toned.add(id)) return
         handler.postDelayed({ toned.remove(id) }, 10_000)
+        val context = service ?: return
+        // Por el canal de la llamada: sale por donde se estaba hablando (auricular, altavoz o Bluetooth).
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
         try {
-            val tone = ToneGenerator(AudioManager.STREAM_VOICE_CALL, END_TONE_VOLUME)
-            tone.startTone(ToneGenerator.TONE_PROP_PROMPT, END_TONE_MILLIS)
-            handler.postDelayed({ tone.release() }, END_TONE_MILLIS + 300L)
+            val audio = context.getSystemService(AudioManager::class.java) ?: return
+            val player = MediaPlayer.create(context, R.raw.call_end, attrs, audio.generateAudioSessionId()) ?: return
+            player.setOnCompletionListener { it.release() }
+            player.start()
         } catch (e: RuntimeException) {
             // Sin audio disponible: se corta en silencio.
         }
@@ -337,7 +346,5 @@ object CallManager {
     }
 
     private const val DTMF_MILLIS = 150L
-    private const val END_TONE_MILLIS = 200
-    private const val END_TONE_VOLUME = 80
     private const val SCREEN_WAIT_MILLIS = 1500L
 }

@@ -8,7 +8,7 @@
 
 ### Changed
 - During a call, the contact photo is a bit smaller: up to 240 dp, or two thirds of the width.
-- A short tone plays when a call ends, whoever hangs up (not when declining or on missed calls).
+- A short "bloop" plays when a call ends, whoever hangs up (not when declining or on missed calls).
 
 ## 1.2.2
 
