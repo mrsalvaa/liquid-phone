@@ -4,11 +4,12 @@
 
 **English** | [Español](CHANGELOG.es.md)
 
-## Unreleased
+## 1.2.3
 
 ### Changed
 - During a call, the contact photo is a bit smaller: up to 240 dp, or two thirds of the width.
 - A short "bloop" plays when a call ends, whoever hangs up (not when declining or on missed calls).
+- Notifications show the app icon you picked in Settings as their picture (the small app icon the system adds is fixed and can't follow the choice).
 
 ## 1.2.2
 

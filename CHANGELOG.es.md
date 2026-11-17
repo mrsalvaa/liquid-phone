@@ -4,11 +4,12 @@
 
 [English](CHANGELOG.md) | **Español**
 
-## Sin publicar
+## 1.2.3
 
 ### Cambios
 - En la llamada, la foto del contacto es un poco más chica: hasta 240 dp o dos tercios del ancho.
 - Suena un "bloop" corto al terminar una llamada, corte quien corte (no al rechazar ni en las perdidas).
+- Las notificaciones muestran como imagen el ícono de la app que elegiste en Ajustes (el ícono chico que agrega el sistema es fijo y no puede seguir la elección).
 
 ## 1.2.2
 

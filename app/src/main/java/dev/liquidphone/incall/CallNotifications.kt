@@ -112,6 +112,7 @@ object CallNotifications {
                 // Android rechaza CallStyle sin pantalla completa: acá va una notificación común.
                 builder
                     .setContentTitle(ringing.title)
+                    .setLargeIcon(dev.liquidphone.util.AppIcons.large(context))
                     .addAction(Notification.Action.Builder(null, str(R.string.call_reject), action(context, ACTION_DECLINE, id)).build())
                     .addAction(Notification.Action.Builder(null, str(R.string.call_answer), screen(context, 2, answerId = id)).build())
             } else {
@@ -138,6 +139,7 @@ object CallNotifications {
             ID_ONGOING,
             Notification.Builder(context, CHANNEL_ONGOING)
                 .setSmallIcon(R.drawable.ic_notification_call)
+                .setLargeIcon(dev.liquidphone.util.AppIcons.large(context))
                 .setCategory(Notification.CATEGORY_CALL)
                 .setOngoing(true)
                 .setContentTitle(main.title)
@@ -181,6 +183,7 @@ object CallNotifications {
         )
         val builder = Notification.Builder(context, CHANNEL_MISSED)
             .setSmallIcon(R.drawable.ic_notification_call)
+            .setLargeIcon(dev.liquidphone.util.AppIcons.large(context))
             .setCategory(Notification.CATEGORY_MISSED_CALL)
             .setContentTitle(plural(R.plurals.missed_calls, summary.count))
             .setContentText(listOfNotNull(if (summary.sameNumber) who else str(R.string.missed_several_numbers), chipLine).joinToString(" · "))

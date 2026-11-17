@@ -26,7 +26,7 @@ android {
         applicationId = "dev.liquidphone"
         minSdk = 31
         targetSdk = 35
-        versionCode = 6
+        versionCode = 7
         versionName = "1.2.3"
     }
 
